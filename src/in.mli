@@ -53,11 +53,11 @@ val input : t -> bytes -> int -> int -> int
 val concat : t list -> t
 (** Read from each stream, in order *)
 
-val seek : t -> int64 -> unit
+val seek : t -> int -> unit
 (** If available, seek in the underlying stream.
       @raise Sys_error in case of failure *)
 
-val pos : t -> int64
+val pos : t -> int
 (** If available, return current offset in underlying stream.
       @raise Sys_error in case of failure *)
 

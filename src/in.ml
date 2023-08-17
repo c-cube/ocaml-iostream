@@ -74,12 +74,12 @@ let[@inline] close self : unit = self.close ()
 
 let seek self i : unit =
   match self.as_fd () with
-  | Some fd -> ignore (Unix.lseek fd (Int64.to_int i) Unix.SEEK_SET : int)
+  | Some fd -> ignore (Unix.lseek fd i Unix.SEEK_SET : int)
   | None -> raise (Sys_error "cannot seek")
 
-let pos self : int64 =
+let pos self : int =
   match self.as_fd () with
-  | Some fd -> Int64.of_int (Unix.lseek fd 0 Unix.SEEK_CUR)
+  | Some fd -> Unix.lseek fd 0 Unix.SEEK_CUR
   | None -> raise (Sys_error "cannot get pos")
 
 let copy_into ?(buf = Bytes.create 4_096) (ic : t) (oc : Out.t) : unit =

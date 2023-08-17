@@ -70,11 +70,11 @@ val tee : t list -> t
 (** [tee ocs] is an output that accepts bytes and writes them to every output
     in [ocs]. When closed, it closes all elements of [oc]. *)
 
-val pos : t -> int64
+val pos : t -> int
 (** Current position in the underlying file, if any.
       @raise Sys_error if this is not a wrapper around a unix FD. *)
 
-val seek : t -> int64 -> unit
+val seek : t -> int -> unit
 (** Move to the given location.
       @raise Sys_error if this is not a wrapper around a unix FD. *)
 

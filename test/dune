@@ -1,0 +1,3 @@
+(tests
+ (names t_in t_out t_in_buf)
+ (libraries iostream ounit2))

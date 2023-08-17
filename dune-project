@@ -14,7 +14,10 @@
 (package
  (name iostream)
  (synopsis "Generic, composable IO input and output streams")
- (depends ocaml dune)
+ (depends
+   (ocaml (>= 4.08))
+   dune
+   (ounit2 :with-test))
  (tags
   (topics io channels streams)))
 

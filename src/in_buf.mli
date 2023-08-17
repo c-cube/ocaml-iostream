@@ -99,3 +99,6 @@ val input_line : ?buffer:Buffer.t -> t -> string option
 
 val input_lines : ?buffer:Buffer.t -> t -> string list
 (** Read all lines from the input. *)
+
+val to_iter : t -> (char -> unit) -> unit
+val to_seq : t -> char Seq.t

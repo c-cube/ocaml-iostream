@@ -68,3 +68,4 @@ val copy_into : ?buf:bytes -> t -> Out.t -> unit
 (** Copy the whole stream into the given output. *)
 
 val map_char : (char -> char) -> t -> t
+(** Transform the stream byte by byte *)

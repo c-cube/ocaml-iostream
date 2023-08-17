@@ -79,3 +79,4 @@ val seek : t -> int64 -> unit
       @raise Sys_error if this is not a wrapper around a unix FD. *)
 
 val map_char : (char -> char) -> t -> t
+(** Transform the stream byte by byte *)

@@ -158,3 +158,33 @@ let input_lines ?(buffer = Buffer.create 32) ic =
     | Some s -> loop (s :: l)
   in
   loop []
+
+let to_iter (self : t) k : unit =
+  let continue = ref true in
+  while !continue do
+    fill_buffer self;
+    if self.len = 0 then
+      continue := false
+    else (
+      for i = 0 to self.len - 1 do
+        k (Bytes.get self.buf i)
+      done;
+      consume self self.len
+    )
+  done
+
+let to_seq (self : t) : char Seq.t =
+  let continue = ref true in
+  let rec next () =
+    if not !continue then
+      Seq.Nil
+    else if self.len = 0 then (
+      fill_buffer self;
+      next ()
+    ) else (
+      let c = Bytes.get self.buf self.off in
+      consume self 1;
+      Seq.Cons (c, next)
+    )
+  in
+  next

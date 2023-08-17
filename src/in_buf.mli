@@ -102,3 +102,4 @@ val input_lines : ?buffer:Buffer.t -> t -> string list
 
 val to_iter : t -> (char -> unit) -> unit
 val to_seq : t -> char Seq.t
+val of_seq : ?buf:bytes -> char Seq.t -> t

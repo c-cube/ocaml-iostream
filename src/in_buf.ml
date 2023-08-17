@@ -188,3 +188,22 @@ let to_seq (self : t) : char Seq.t =
     )
   in
   next
+
+let of_seq ?buf seq : t =
+  let seq = ref seq in
+  let fill_buffer buf =
+    let rec loop idx =
+      if idx >= Bytes.length buf then
+        idx
+      else (
+        match !seq () with
+        | Seq.Nil -> idx
+        | Seq.Cons (c, seq_tl) ->
+          seq := seq_tl;
+          Bytes.set buf idx c;
+          loop (idx + 1)
+      )
+    in
+    loop 0
+  in
+  create ?buf ~fill_buffer ()

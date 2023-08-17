@@ -24,12 +24,23 @@ let of_out_channel ?(close_noerr = false) (oc : out_channel) : t =
       (fun () ->
         if close_noerr then
           close_out_noerr oc
-        else
-          close_out oc);
+        else (
+          flush oc;
+          close_out oc
+        ));
     as_fd = (fun () -> Some (Unix.descr_of_out_channel oc));
   }
 
 let of_unix_fd fd : t = of_out_channel (Unix.out_channel_of_descr fd)
+
+let open_file ?(mode = 0o644) ?(flags = [ Unix.O_WRONLY; Unix.O_CREAT ])
+    filename : t =
+  let fd = Unix.openfile filename flags mode in
+  of_unix_fd fd
+
+let with_open_file ?mode ?flags filename f =
+  let oc = open_file ?mode ?flags filename in
+  Fun.protect ~finally:oc.close (fun () -> f oc)
 
 let of_buffer (buf : Buffer.t) : t =
   {
@@ -39,11 +50,6 @@ let of_buffer (buf : Buffer.t) : t =
     close = ignore;
     as_fd = (fun () -> None);
   }
-
-let of_buf buf : t =
-  let output_char = Buf.add_char buf in
-  let output = Buf.add_bytes buf in
-  create ~output_char ~output ()
 
 (** Output the buffer slice into this channel *)
 let[@inline] output_char (self : t) c : unit = self.output_char c
@@ -70,10 +76,6 @@ let pos self : int64 =
   | Some fd -> Int64.of_int (Unix.lseek fd 0 Unix.SEEK_CUR)
   | None -> raise (Sys_error "cannot get pos")
 
-let output_buf (self : t) (buf : Buf.t) : unit =
-  let b = Buf.bytes_slice buf in
-  output self b 0 (Buf.size buf)
-
 let output_int self i =
   let s = string_of_int i in
   output_string self s
@@ -85,4 +87,27 @@ let output_lines self seq =
       output_char self '\n')
     seq
 
-(* etc. *)
+let tee (l : t list) : t =
+  match l with
+  | [] -> dummy
+  | [ oc ] -> oc
+  | _ ->
+    let output bs i len = List.iter (fun oc -> output oc bs i len) l in
+    let output_char c = List.iter (fun oc -> output_char oc c) l in
+    let close () = List.iter close l in
+    let flush () = List.iter flush l in
+    create ~flush ~close ~output ~output_char ()
+
+let map_char f (oc : t) : t =
+  let output_char c = output_char oc (f c) in
+  let output buf i len =
+    for j = i to i + len - 1 do
+      let c = Bytes.get buf j in
+      (* safety: [j] is valid because [get] above did not raise *)
+      Bytes.unsafe_set buf j (f c)
+    done;
+    output oc buf i len
+  in
+  let flush () = flush oc in
+  let close () = close oc in
+  create ~flush ~close ~output_char ~output ()

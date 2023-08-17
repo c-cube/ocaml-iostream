@@ -36,9 +36,13 @@ val of_buffer : Buffer.t -> t
 (** [of_buffer buf] is an output channel that writes directly into [buf].
     [flush] and [close] have no effect. *)
 
-val of_buf : Buf.t -> t
-(** [of_buf buf] is an output channel that writes directly into [buf].
-    [flush] and [close] have no effect. *)
+val open_file : ?mode:int -> ?flags:Unix.open_flag list -> string -> t
+(** [open_file file] creates an out stream writing into the given file.
+    @param mode permissions for the file creation
+    @param flags set of unix flags to use. It must contain write permissions. *)
+
+val with_open_file :
+  ?mode:int -> ?flags:Unix.open_flag list -> string -> (t -> 'a) -> 'a
 
 val output_char : t -> char -> unit
 (** Output a single char *)
@@ -59,11 +63,12 @@ val output_string : t -> string -> unit
 val output_lines : t -> string Seq.t -> unit
 (** Output a series of lines, each terminated by ['\n']. *)
 
-val output_buf : t -> Buf.t -> unit
-(** Output the content of the buffer. *)
-
 val output_int : t -> int -> unit
 (** Output an integer in decimal notation. *)
+
+val tee : t list -> t
+(** [tee ocs] is an output that accepts bytes and writes them to every output
+    in [ocs]. When closed, it closes all elements of [oc]. *)
 
 val pos : t -> int64
 (** Current position in the underlying file, if any.
@@ -72,3 +77,5 @@ val pos : t -> int64
 val seek : t -> int64 -> unit
 (** Move to the given location.
       @raise Sys_error if this is not a wrapper around a unix FD. *)
+
+val map_char : (char -> char) -> t -> t

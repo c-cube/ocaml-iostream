@@ -33,6 +33,14 @@ let of_unix_fd ?(close_noerr = false) (fd : Unix.file_descr) : t =
           Unix.close fd);
   }
 
+let open_file ?(mode = 0o644) ?(flags = [ Unix.O_RDONLY ]) filename : t =
+  let fd = Unix.openfile filename flags mode in
+  of_unix_fd fd
+
+let with_open_file ?mode ?flags filename f =
+  let ic = open_file ?mode ?flags filename in
+  Fun.protect ~finally:ic.close (fun () -> f ic)
+
 let of_bytes ?(off = 0) ?len (b : bytes) : t =
   (* invariant: [!i + !len] is constant *)
   let i = ref off in
@@ -74,16 +82,43 @@ let pos self : int64 =
   | Some fd -> Int64.of_int (Unix.lseek fd 0 Unix.SEEK_CUR)
   | None -> raise (Sys_error "cannot get pos")
 
-let input_into_buf (self : t) (buf : Buf.t) : unit =
-  let n = self.input buf.bytes 0 (Bytes.length buf.bytes) in
-  buf.len <- n
-
-let copy_into ?(buf = Buf.create ~size:4_096 ()) (ic : t) (oc : Out.t) : unit =
+let copy_into ?(buf = Bytes.create 4_096) (ic : t) (oc : Out.t) : unit =
   let continue = ref true in
   while !continue do
-    let len = input ic buf.bytes 0 (Bytes.length buf.bytes) in
+    let len = input ic buf 0 (Bytes.length buf) in
     if len = 0 then
       continue := false
     else
-      Out.output oc buf.bytes 0 len
+      Out.output oc buf 0 len
   done
+
+let concat (l0 : t list) : t =
+  let l = ref l0 in
+  let rec input b i len : int =
+    match !l with
+    | [] -> 0
+    | ic :: tl ->
+      let n = ic.input b i len in
+      if n > 0 then
+        n
+      else (
+        l := tl;
+        input b i len
+      )
+  in
+  let close () = List.iter close l0 in
+  create ~close ~input ()
+
+let map_char f (ic : t) : t =
+  let close () = close ic in
+  let input b i len : int =
+    let n = ic.input b i len in
+    if n > 0 then
+      for j = i to i + n - 1 do
+        let c = Bytes.get b j in
+        (* safety: the index is valid because [get] above didn't raise. *)
+        Bytes.unsafe_set b j (f c)
+      done;
+    n
+  in
+  create ~close ~input ()

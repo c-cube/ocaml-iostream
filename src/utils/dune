@@ -1,5 +1,0 @@
-(library
-  (public_name iostream.utils)
-  (name iostream_utils)
-  (synopsis "utils for iostreams")
-  (libraries iostream))

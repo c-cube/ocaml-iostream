@@ -31,6 +31,11 @@ val of_unix_fd : ?close_noerr:bool -> Unix.file_descr -> t
 val of_in_channel : ?close_noerr:bool -> in_channel -> t
 (** Wrap a standard input channel. *)
 
+val open_file : ?mode:int -> ?flags:Unix.open_flag list -> string -> t
+
+val with_open_file :
+  ?mode:int -> ?flags:Unix.open_flag list -> string -> (t -> 'a) -> 'a
+
 val of_string : ?off:int -> ?len:int -> string -> t
 (** An input channel reading from the string.
     @param offset initial offset in the string. Default [0].
@@ -45,11 +50,8 @@ val input : t -> bytes -> int -> int -> int
 (** Read bytes into the given buffer. This returns [0] only if
     the stream has reached its end. *)
 
-val input_into_buf : t -> Buf.t -> unit
-(** [input_into_buf is buf] clears [buf] and tries to read as many
-    bytes as possible into [buf] as it can in one go.
-    If it reads [n] bytes, it sets [buf.len] to [n]. This only reads 0
-    bytes if the stream has reached its end *)
+val concat : t list -> t
+(** Read from each stream, in order *)
 
 val seek : t -> int64 -> unit
 (** If available, seek in the underlying stream.
@@ -62,5 +64,7 @@ val pos : t -> int64
 val close : t -> unit
 (** Close the input stream. This is idempotent. *)
 
-val copy_into : ?buf:Buf.t -> t -> Out.t -> unit
+val copy_into : ?buf:bytes -> t -> Out.t -> unit
 (** Copy the whole stream into the given output. *)
+
+val map_char : (char -> char) -> t -> t

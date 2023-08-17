@@ -4,7 +4,6 @@
     and can be composed from other streams.
 *)
 
-module Buf = Buf
 module In = In
 module In_buf = In_buf
 module Out = Out

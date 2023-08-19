@@ -66,6 +66,9 @@ val get_len : t -> int
 val input : t -> bytes -> int -> int -> int
 (** Read into the given slice of bytes. *)
 
+val input_all : t -> string
+(** Read the whole input. *)
+
 val of_in : ?buf:bytes -> In.t -> t
 (** Make a buffered version of the input stream.
     @param buf the buffer to use.

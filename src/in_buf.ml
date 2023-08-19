@@ -105,6 +105,21 @@ let index_in_slice_ bs i len c : int =
   else
     raise Not_found
 
+let input_all ?buffer:(buf = Buffer.create 32) (self : t) : string =
+  Buffer.clear buf;
+  let continue = ref true in
+  while !continue do
+    fill_buffer self;
+
+    if self.len = 0 then
+      continue := false
+    else (
+      Buffer.add_subbytes buf self.buf self.off self.len;
+      consume self self.len
+    )
+  done;
+  Buffer.contents buf
+
 let input_line ?buffer (self : t) : string option =
   (* see if we can directly extract a line from current buffer *)
   fill_buffer self;

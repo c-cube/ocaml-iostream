@@ -92,7 +92,7 @@ let input_all_into_buffer self buf : unit =
   let oc = Out.of_buffer buf in
   copy_into self oc
 
-let input_all ?buffer:(buf = Buffer.create 256) self : string =
+let input_all ?buffer:(buf = Buffer.create 32) self : string =
   Buffer.clear buf;
   input_all_into_buffer self buf;
   Buffer.contents buf
@@ -104,21 +104,6 @@ let index_in_slice_ bs i len c : int =
     j
   else
     raise Not_found
-
-let input_all ?buffer:(buf = Buffer.create 32) (self : t) : string =
-  Buffer.clear buf;
-  let continue = ref true in
-  while !continue do
-    fill_buffer self;
-
-    if self.len = 0 then
-      continue := false
-    else (
-      Buffer.add_subbytes buf self.buf self.off self.len;
-      consume self self.len
-    )
-  done;
-  Buffer.contents buf
 
 let input_line ?buffer (self : t) : string option =
   (* see if we can directly extract a line from current buffer *)

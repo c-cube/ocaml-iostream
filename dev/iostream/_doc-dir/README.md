@@ -11,6 +11,10 @@ in the OCaml ecosystem can rely on, while providing the modularity that standard
 Modern statically typed languages like Go and Rust provide this layer in their stdlib and their whole
 ecosystem can build on it.
 
+## Documentation
+
+https://c-cube.github.io/ocaml-iostream/dev/html/
+
 ## License
 
 MIT license.

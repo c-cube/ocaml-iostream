@@ -2,6 +2,7 @@
 
 (name iostream)
 (generate_opam_files true)
+(version 0.1)
 
 (source
  (github c-cube/ocaml-iostream))
@@ -16,7 +17,7 @@
  (synopsis "Generic, composable IO input and output streams")
  (depends
    (ocaml (>= 4.08))
-   dune
+   (dune (>= 2.0))
    (ounit2 :with-test))
  (tags
   (topics io channels streams)))

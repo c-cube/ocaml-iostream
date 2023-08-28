@@ -1,0 +1,4 @@
+{0:package-iostream Package iostream {%html: <nav>  <a href="#package_info">more…</a></nav>%}}
+{!modules: Iostream}
+{1:package_info Package info}
+ {%html:<table class="package info"><tr id="info-readme-files"><td><a href="#info-readme-files" aria-hidden="true" class="anchor"></a>readme-files</td><td><ul><li><a type="text/plain; charset=UTF-8" href="_doc-dir/README.md">README.md</a></li></ul></td></tr></table>%}

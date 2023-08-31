@@ -1,28 +1,29 @@
-class virtual cls =
+class virtual t =
   object
     method virtual output_char : char -> unit
     method virtual output : bytes -> int -> int -> unit
     method flush () = ()
     method close () = ()
-    method as_fd () : Unix.file_descr option = None
   end
 
-type t = cls
-
-let create ?(as_fd = fun () -> None) ?(flush = ignore) ?(close = ignore)
-    ~output_char ~output () : t =
+class virtual t_seekable =
   object
-    inherit cls
+    inherit t
+    inherit Seekable.t
+  end
+
+let create ?(flush = ignore) ?(close = ignore) ~output_char ~output () : t =
+  object
+    inherit t
     method! flush () = flush ()
     method! close () = close ()
     method output_char c = output_char c
     method output bs i len = output bs i len
-    method! as_fd () = as_fd ()
   end
 
 let dummy : t =
   object
-    inherit cls
+    inherit t
     method output_char _ = ()
     method output _ _ _ = ()
   end
@@ -30,9 +31,9 @@ let dummy : t =
 (** [of_out_channel oc] wraps the channel into a {!Out_channel.t}.
       @param close_noerr if true, then closing the result uses [close_out_noerr]
       instead of [close_out] to close [oc] *)
-let of_out_channel ?(close_noerr = false) (oc : out_channel) : t =
+let of_out_channel ?(close_noerr = false) (oc : out_channel) : t_seekable =
   object
-    inherit cls
+    inherit t
     method output_char c = output_char oc c
     method output bs i len = output oc bs i len
 
@@ -45,13 +46,14 @@ let of_out_channel ?(close_noerr = false) (oc : out_channel) : t =
       )
 
     method! flush () = flush oc
-    method! as_fd () = Some (Unix.descr_of_out_channel oc)
+    method seek i = seek_out oc i
+    method pos () = pos_out oc
   end
 
-let of_unix_fd fd : t = of_out_channel (Unix.out_channel_of_descr fd)
+let of_unix_fd fd : t_seekable = of_out_channel (Unix.out_channel_of_descr fd)
 
 let open_file ?(mode = 0o644) ?(flags = [ Unix.O_WRONLY; Unix.O_CREAT ])
-    filename : t =
+    filename : t_seekable =
   let fd = Unix.openfile filename flags mode in
   of_unix_fd fd
 
@@ -61,18 +63,18 @@ let with_open_file ?mode ?flags filename f =
 
 let of_buffer (buf : Buffer.t) : t =
   object
-    inherit cls
+    inherit t
     method output_char c = Buffer.add_char buf c
     method output bs i len = Buffer.add_subbytes buf bs i len
   end
 
 (** Output the buffer slice into this channel *)
-let[@inline] output_char (self : t) c : unit = self#output_char c
+let[@inline] output_char (self : #t) c : unit = self#output_char c
 
 (** Output the buffer slice into this channel *)
-let[@inline] output (self : t) buf i len : unit = self#output buf i len
+let[@inline] output (self : #t) buf i len : unit = self#output buf i len
 
-let[@inline] output_string (self : t) (str : string) : unit =
+let[@inline] output_string (self : #t) (str : string) : unit =
   self#output (Bytes.unsafe_of_string str) 0 (String.length str)
 
 (** Close the channel. *)
@@ -80,16 +82,6 @@ let[@inline] close self : unit = self#close ()
 
 (** Flush (ie. force write) any buffered bytes. *)
 let[@inline] flush self : unit = self#flush ()
-
-let seek self i : unit =
-  match self#as_fd () with
-  | Some fd -> ignore (Unix.lseek fd i Unix.SEEK_SET : int)
-  | None -> raise (Sys_error "cannot seek")
-
-let pos self : int =
-  match self#as_fd () with
-  | Some fd -> Unix.lseek fd 0 Unix.SEEK_CUR
-  | None -> raise (Sys_error "cannot get pos")
 
 let output_int self i =
   let s = string_of_int i in
@@ -113,7 +105,7 @@ let tee (l : t list) : t =
     let flush () = List.iter flush l in
     create ~flush ~close ~output ~output_char ()
 
-let map_char f (oc : t) : t =
+let map_char f (oc : #t) : t =
   let output_char c = output_char oc (f c) in
   let output buf i len =
     for j = i to i + len - 1 do

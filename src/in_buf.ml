@@ -2,9 +2,9 @@ open Slice
 
 let _default_buf_size = 4_096
 
-class virtual cls ~buf =
+class virtual t ~buf =
   object (self)
-    inherit In.cls
+    inherit In.t
     val slice : Slice.t = buf
     method virtual refill : Slice.t -> unit
 
@@ -28,21 +28,19 @@ class virtual cls ~buf =
     (** Default implementation of [input] using [fill_buf] *)
   end
 
-class virtual cls_with_default_buffer =
+class virtual t_with_default_buffer =
   object
-    inherit cls ~buf:(Slice.create _default_buf_size)
+    inherit t ~buf:(Slice.create _default_buf_size)
   end
 
-type t = cls
-
-let[@inline] consume (self : t) n = self#consume n
-let[@inline] fill_buf (self : t) : Slice.t = self#fill_buf ()
+let[@inline] consume (self : #t) n = self#consume n
+let[@inline] fill_buf (self : #t) : Slice.t = self#fill_buf ()
 
 let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
     () : t =
   let buf = Slice.of_bytes bytes in
   object
-    inherit cls ~buf
+    inherit t ~buf
     method! close () = close ()
 
     method refill buf : unit =
@@ -66,7 +64,7 @@ let of_bytes ?(off = 0) ?len bytes : t =
   let buf = { bytes; off; len } in
 
   object
-    inherit cls ~buf
+    inherit t ~buf
 
     method refill buf =
       (* nothing to refill *)
@@ -76,7 +74,7 @@ let of_bytes ?(off = 0) ?len bytes : t =
 
 let of_in ?(bytes = Bytes.create _default_buf_size) ic : t =
   object
-    inherit cls ~buf:(Slice.of_bytes bytes)
+    inherit t ~buf:(Slice.of_bytes bytes)
     method! close () = In.close ic
 
     method refill buf =
@@ -96,9 +94,9 @@ let with_open_file ?bytes ?mode ?flags filename f =
   let ic = open_file ?bytes ?mode ?flags filename in
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
-let[@inline] into_in (self : t) : In.t = (self :> In.cls)
+let[@inline] into_in (self : #t) : In.t = (self :> In.t)
 
-let copy_into (self : t) (oc : Out.t) : unit =
+let copy_into (self : #t) (oc : Out.t) : unit =
   let continue = ref true in
   while !continue do
     let buf = fill_buf self in
@@ -127,7 +125,7 @@ let index_in_slice_ bs i len c : int =
   else
     raise Not_found
 
-let input_line ?buffer (self : t) : string option =
+let input_line ?buffer (self : #t) : string option =
   (* see if we can directly extract a line from current buffer *)
   let slice = fill_buf self in
   if slice.len = 0 then
@@ -181,7 +179,7 @@ let input_lines ?(buffer = Buffer.create 32) ic =
   in
   loop []
 
-let to_iter (self : t) k : unit =
+let to_iter (self : #t) k : unit =
   let continue = ref true in
   while !continue do
     let bs = fill_buf self in
@@ -195,7 +193,7 @@ let to_iter (self : t) k : unit =
     )
   done
 
-let to_seq (self : t) : char Seq.t =
+let to_seq (self : #t) : char Seq.t =
   let continue = ref true in
   let rec next () =
     if not !continue then
@@ -218,7 +216,7 @@ let of_seq ?(bytes = Bytes.create _default_buf_size) seq : t =
   let seq = ref seq in
 
   object
-    inherit cls ~buf:(Slice.of_bytes bytes)
+    inherit t ~buf:(Slice.of_bytes bytes)
 
     method refill bs =
       let rec loop idx =

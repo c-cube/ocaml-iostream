@@ -1,28 +1,31 @@
-class virtual cls =
+class virtual t =
   object
     method virtual input : bytes -> int -> int -> int
     method close () = ()
-    method as_fd () : Unix.file_descr option = None
   end
 
-type t = cls
+class virtual t_seekable =
+  object
+    inherit t
+    inherit Seekable.t
+  end
 
-let create ?(as_fd = fun _ -> None) ?(close = ignore) ~input () : t =
+let create ?(close = ignore) ~input () : t =
   object
     method close = close
     method input = input
-    method as_fd = as_fd
   end
 
 let empty : t =
   object
-    inherit cls
+    inherit t
     method input _ _ _ = 0
   end
 
-let of_in_channel ?(close_noerr = false) (ic : in_channel) : t =
+let of_in_channel ?(close_noerr = false) (ic : in_channel) : t_seekable =
   object
-    inherit cls
+    inherit t
+    inherit Seekable.t
     method input buf i len = input ic buf i len
 
     method! close () =
@@ -31,23 +34,27 @@ let of_in_channel ?(close_noerr = false) (ic : in_channel) : t =
       else
         close_in ic
 
-    method! as_fd () = Some (Unix.descr_of_in_channel ic)
+    method seek i = seek_in ic i
+    method pos () = pos_in ic
   end
 
-let of_unix_fd ?(close_noerr = false) (fd : Unix.file_descr) : t =
+let of_unix_fd ?(close_noerr = false) (fd : Unix.file_descr) : t_seekable =
   object
-    inherit cls
+    inherit t
     method input buf i len = Unix.read fd buf i len
-    method! as_fd () = Some fd
 
     method! close () =
       if close_noerr then (
         try Unix.close fd with _ -> ()
       ) else
         Unix.close fd
+
+    method seek i = ignore (Unix.lseek fd i Unix.SEEK_SET : int)
+    method pos () : int = Unix.lseek fd 0 Unix.SEEK_CUR
   end
 
-let open_file ?(mode = 0o644) ?(flags = [ Unix.O_RDONLY ]) filename : t =
+let open_file ?(mode = 0o644) ?(flags = [ Unix.O_RDONLY ]) filename : t_seekable
+    =
   let fd = Unix.openfile filename flags mode in
   of_unix_fd fd
 
@@ -55,20 +62,21 @@ let with_open_file ?mode ?flags filename f =
   let ic = open_file ?mode ?flags filename in
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
-let of_bytes ?(off = 0) ?len (b : bytes) : t =
+let of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
   (* invariant: [!i + !len] is constant *)
   let i = ref off in
-  let len =
-    ref
-      (match len with
-      | Some n ->
-        if n > Bytes.length b - off then invalid_arg "Iostream.In.of_bytes";
-        n
-      | None -> Bytes.length b - off)
+  let len0 =
+    match len with
+    | Some n ->
+      if n > Bytes.length b - off then invalid_arg "Iostream.In.of_bytes";
+      n
+    | None -> Bytes.length b - off
   in
+  let len = ref len0 in
 
   object
-    inherit cls
+    inherit t
+    inherit Seekable.t
 
     method input b_out i_out len_out =
       let n = min !len len_out in
@@ -78,28 +86,25 @@ let of_bytes ?(off = 0) ?len (b : bytes) : t =
       n
 
     method! close () = len := 0
+    method pos () = !i
+
+    method seek j =
+      if j < off || j > off + len0 then
+        raise (Sys_error "Iostream.In.see: invalid pos");
+      i := j
   end
 
-let of_string ?off ?len s : t = of_bytes ?off ?len (Bytes.unsafe_of_string s)
+let of_string ?off ?len s : t_seekable =
+  of_bytes ?off ?len (Bytes.unsafe_of_string s)
 
 (** Read into the given slice.
       @return the number of bytes read, [0] means end of input. *)
-let[@inline] input (self : t) buf i len = self#input buf i len
+let[@inline] input (self : #t) buf i len = self#input buf i len
 
 (** Close the channel. *)
 let[@inline] close self : unit = self#close ()
 
-let seek self i : unit =
-  match self#as_fd () with
-  | Some fd -> ignore (Unix.lseek fd i Unix.SEEK_SET : int)
-  | None -> raise (Sys_error "cannot seek")
-
-let pos self : int =
-  match self#as_fd () with
-  | Some fd -> Unix.lseek fd 0 Unix.SEEK_CUR
-  | None -> raise (Sys_error "cannot get pos")
-
-let copy_into ?(buf = Bytes.create 4_096) (ic : t) (oc : Out.t) : unit =
+let copy_into ?(buf = Bytes.create 4_096) (ic : #t) (oc : Out.t) : unit =
   let continue = ref true in
   while !continue do
     let len = input ic buf 0 (Bytes.length buf) in
@@ -126,7 +131,7 @@ let concat (l0 : t list) : t =
   let close () = List.iter close l0 in
   create ~close ~input ()
 
-let map_char f (ic : t) : t =
+let map_char f (ic : #t) : t =
   let close () = close ic in
   let input b i len : int =
     let n = ic#input b i len in

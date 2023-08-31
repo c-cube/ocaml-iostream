@@ -3,10 +3,10 @@
 (** The implementation of buffered input streams.
 
     @param buf the buffer to use internally. *)
-class virtual cls :
+class virtual t :
   buf:Slice.t
   -> object
-       inherit In.cls
+       inherit In.t
 
        method virtual refill : Slice.t -> unit
        (** Implementation of the stream: this takes a slice,
@@ -27,12 +27,10 @@ class virtual cls :
        (** Default implementation of [input] using [fill_buf] *)
      end
 
-type t = cls
-
 (** A version of [cls] that creates a new buffer. *)
-class virtual cls_with_default_buffer :
+class virtual t_with_default_buffer :
   object
-    inherit cls
+    inherit t
   end
 
 val create :

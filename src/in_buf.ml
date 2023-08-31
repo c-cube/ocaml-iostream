@@ -1,75 +1,100 @@
-type t = {
-  buf: bytes;
-  mutable len: int;
-  mutable off: int;
-  fill_buffer: bytes -> int;
-  close: unit -> unit;
-}
+open Slice
 
-let[@inline] get_bytes self = self.buf
-let[@inline] get_off self = self.off
-let[@inline] get_len self = self.len
+let _default_buf_size = 4_096
 
-(** Make sure [self.buf] is not empty if [ic] is not empty *)
-let fill_buffer (self : t) : unit =
-  if self.len <= 0 then (
-    self.off <- 0;
-    self.len <- self.fill_buffer self.buf
-  )
+class virtual cls ~buf =
+  object (self)
+    inherit In.cls
+    val slice : Slice.t = buf
+    method virtual refill : Slice.t -> unit
 
-let create ?(buf = Bytes.create 4_096) ?(close = ignore) ~fill_buffer () : t =
-  { buf; len = 0; off = 0; close; fill_buffer }
+    method fill_buf () : Slice.t =
+      if slice.len = 0 then self#refill slice;
+      slice
 
-let input self b i len : int =
-  fill_buffer self;
-  if self.len > 0 then (
-    let n = min len self.len in
-    Bytes.blit self.buf self.off b i n;
-    self.off <- self.off + n;
-    self.len <- self.len - n;
-    n
-  ) else
-    0
+    method consume (n : int) : unit = Slice.consume slice n
+    (** Consume [n] bytes from the inner buffer. *)
 
-let[@inline] fill_and_get self =
-  fill_buffer self;
-  get_bytes self, get_off self, get_len self
+    method input b i len : int =
+      let buf = self#fill_buf () in
 
-let consume self n =
-  assert (n <= self.len);
-  self.off <- self.off + n;
-  self.len <- self.len - n
+      if buf.len > 0 then (
+        let n = min len buf.len in
+        Bytes.blit buf.bytes buf.off b i n;
+        Slice.consume buf n;
+        n
+      ) else
+        0
+    (** Default implementation of [input] using [fill_buf] *)
+  end
 
-let[@inline] close self = self.close ()
+class virtual cls_with_default_buffer =
+  object
+    inherit cls ~buf:(Slice.create _default_buf_size)
+  end
 
-let of_bytes ?(off = 0) ?len buf : t =
+type t = cls
+
+let[@inline] consume (self : t) n = self#consume n
+let[@inline] fill_buf (self : t) : Slice.t = self#fill_buf ()
+
+let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
+    () : t =
+  let buf = Slice.of_bytes bytes in
+  object
+    inherit cls ~buf
+    method! close () = close ()
+
+    method refill buf : unit =
+      buf.off <- 0;
+      buf.len <- refill buf.bytes
+  end
+
+let[@inline] input self b i len : int = self#input b i len
+let[@inline] close self = self#close ()
+
+let of_bytes ?(off = 0) ?len bytes : t =
   let len =
     match len with
-    | None -> Bytes.length buf - off
+    | None -> Bytes.length bytes - off
     | Some n ->
-      if n > Bytes.length buf - off then
+      if n > Bytes.length bytes - off then
         invalid_arg "In_buf.of_bytes: invalid length";
       n
   in
-  let fill_buffer _ = 0 in
-  { buf; off; len; fill_buffer; close = ignore }
 
-let of_in ?buf ic : t =
-  let close () = In.close ic in
-  let fill_buffer buf : int = In.input ic buf 0 (Bytes.length buf) in
-  create ?buf ~close ~fill_buffer ()
+  let buf = { bytes; off; len } in
 
-let of_unix_fd ?buf ?close_noerr fd : t =
-  of_in ?buf (In.of_unix_fd ?close_noerr fd)
+  object
+    inherit cls ~buf
 
-let of_in_channel ?buf ic : t = of_in ?buf (In.of_in_channel ic)
+    method refill buf =
+      (* nothing to refill *)
+      buf.off <- 0;
+      buf.len <- 0
+  end
 
-let open_file ?buf ?mode ?flags filename : t =
-  of_in ?buf (In.open_file ?mode ?flags filename)
+let of_in ?(bytes = Bytes.create _default_buf_size) ic : t =
+  object
+    inherit cls ~buf:(Slice.of_bytes bytes)
+    method! close () = In.close ic
 
-let with_open_file ?buf ?mode ?flags filename f =
-  let ic = open_file ?buf ?mode ?flags filename in
-  Fun.protect ~finally:ic.close (fun () -> f ic)
+    method refill buf =
+      buf.off <- 0;
+      buf.len <- In.input ic buf.bytes 0 (Bytes.length buf.bytes)
+  end
+
+let of_unix_fd ?bytes ?close_noerr fd : t =
+  of_in ?bytes (In.of_unix_fd ?close_noerr fd)
+
+let of_in_channel ?bytes ic : t = of_in ?bytes (In.of_in_channel ic)
+
+let open_file ?bytes ?mode ?flags filename : t =
+  of_in ?bytes (In.open_file ?mode ?flags filename)
+
+let with_open_file ?bytes ?mode ?flags filename f =
+  let ic = open_file ?bytes ?mode ?flags filename in
+  Fun.protect ~finally:ic#close (fun () -> f ic)
 
 let into_in (self : t) : In.t =
   let input b i len = input self b i len in
@@ -79,12 +104,12 @@ let into_in (self : t) : In.t =
 let copy_into (self : t) (oc : Out.t) : unit =
   let continue = ref true in
   while !continue do
-    fill_buffer self;
-    if self.len = 0 then
+    let buf = fill_buf self in
+    if buf.len = 0 then
       continue := false
     else (
-      Out.output oc self.buf 0 self.len;
-      consume self self.len
+      Out.output oc buf.bytes 0 buf.len;
+      consume self buf.len
     )
   done
 
@@ -107,15 +132,15 @@ let index_in_slice_ bs i len c : int =
 
 let input_line ?buffer (self : t) : string option =
   (* see if we can directly extract a line from current buffer *)
-  fill_buffer self;
-  if self.len = 0 then
+  let slice = fill_buf self in
+  if slice.len = 0 then
     None
   else (
-    match index_in_slice_ self.buf self.off self.len '\n' with
+    match index_in_slice_ slice.bytes slice.off slice.len '\n' with
     | j ->
       (* easy case: buffer already contains a full line *)
-      let line = Bytes.sub_string self.buf self.off (j - self.off) in
-      consume self (j - self.off + 1);
+      let line = Bytes.sub_string slice.bytes slice.off (j - slice.off) in
+      consume self (j - slice.off + 1);
       Some line
     | exception Not_found ->
       (* Need to re-fill [self.buf]. We must first create a new holding buffer,
@@ -128,25 +153,25 @@ let input_line ?buffer (self : t) : string option =
         | None -> Buffer.create 256
       in
 
-      Buffer.add_subbytes buf self.buf self.off self.len;
-      consume self self.len;
+      Buffer.add_subbytes buf slice.bytes slice.off slice.len;
+      consume self slice.len;
 
       (* now read until we find ['\n'] *)
       let continue = ref true in
       while !continue do
-        fill_buffer self;
-        if self.len = 0 then continue := false (* EOF *);
-        match index_in_slice_ self.buf self.off self.len '\n' with
+        let bs = fill_buf self in
+        if bs.len = 0 then continue := false (* EOF *);
+        match index_in_slice_ bs.bytes bs.off bs.len '\n' with
         | j ->
-          Buffer.add_subbytes buf self.buf self.off (j - self.off);
+          Buffer.add_subbytes buf bs.bytes bs.off (j - bs.off);
           (* without '\n' *)
-          consume self (j - self.off + 1);
+          consume self (j - bs.off + 1);
           (* consume, including '\n' *)
           continue := false
         | exception Not_found ->
           (* the whole [self.buf] is part of the current line. *)
-          Buffer.add_subbytes buf self.buf self.off self.len;
-          consume self self.len
+          Buffer.add_subbytes buf bs.bytes bs.off bs.len;
+          consume self bs.len
       done;
       Some (Buffer.contents buf)
   )
@@ -162,14 +187,14 @@ let input_lines ?(buffer = Buffer.create 32) ic =
 let to_iter (self : t) k : unit =
   let continue = ref true in
   while !continue do
-    fill_buffer self;
-    if self.len = 0 then
+    let bs = fill_buf self in
+    if bs.len = 0 then
       continue := false
     else (
-      for i = 0 to self.len - 1 do
-        k (Bytes.get self.buf i)
+      for i = 0 to bs.len - 1 do
+        k (Bytes.get bs.bytes i)
       done;
-      consume self self.len
+      consume self bs.len
     )
   done
 
@@ -178,32 +203,39 @@ let to_seq (self : t) : char Seq.t =
   let rec next () =
     if not !continue then
       Seq.Nil
-    else if self.len = 0 then (
-      fill_buffer self;
-      next ()
-    ) else (
-      let c = Bytes.get self.buf self.off in
-      consume self 1;
-      Seq.Cons (c, next)
+    else (
+      let slice = fill_buf self in
+      if slice.len = 0 then (
+        continue := false;
+        Seq.Nil
+      ) else (
+        let c = Bytes.get slice.bytes slice.off in
+        Slice.consume slice 1;
+        Seq.Cons (c, next)
+      )
     )
   in
   next
 
-let of_seq ?buf seq : t =
+let of_seq ?(bytes = Bytes.create _default_buf_size) seq : t =
   let seq = ref seq in
-  let fill_buffer buf =
-    let rec loop idx =
-      if idx >= Bytes.length buf then
-        idx
-      else (
-        match !seq () with
-        | Seq.Nil -> idx
-        | Seq.Cons (c, seq_tl) ->
-          seq := seq_tl;
-          Bytes.set buf idx c;
-          loop (idx + 1)
-      )
-    in
-    loop 0
-  in
-  create ?buf ~fill_buffer ()
+
+  object
+    inherit cls ~buf:(Slice.of_bytes bytes)
+
+    method refill bs =
+      let rec loop idx =
+        if idx >= Bytes.length bs.bytes then
+          idx
+        else (
+          match !seq () with
+          | Seq.Nil -> idx
+          | Seq.Cons (c, seq_tl) ->
+            seq := seq_tl;
+            Bytes.set bs.bytes idx c;
+            loop (idx + 1)
+        )
+      in
+      bs.off <- 0;
+      bs.len <- loop 0
+  end

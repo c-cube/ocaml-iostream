@@ -6,15 +6,16 @@ let spf = Printf.sprintf
 let t1 =
   "of_bytes" >:: fun _ctx ->
   let ic = In_buf.of_bytes (Bytes.of_string "hello world!") in
-  assert_equal (String.length "hello world!") ic.len;
-  assert_equal "hello world!" (Bytes.sub_string ic.buf ic.off ic.len);
+  let bs = In_buf.fill_buf ic in
+  assert_equal (String.length "hello world!") bs.len;
+  assert_equal "hello world!" (Bytes.sub_string bs.bytes bs.off bs.len);
   In_buf.consume ic 5;
-  assert_equal (String.length " world!") ic.len;
-  assert_equal " world!" (Bytes.sub_string ic.buf ic.off ic.len);
+  assert_equal (String.length " world!") bs.len;
+  assert_equal " world!" (Bytes.sub_string bs.bytes bs.off bs.len);
   In_buf.consume ic 7;
-  In_buf.fill_buffer ic;
-  assert_equal 0 ic.len;
-  assert_equal "" (Bytes.sub_string ic.buf ic.off ic.len);
+  let bs = In_buf.fill_buf ic in
+  assert_equal 0 bs.len;
+  assert_equal "" (Bytes.sub_string bs.bytes bs.off bs.len);
   ()
 
 let t2 =

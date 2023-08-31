@@ -1,21 +1,45 @@
 (** Buffered input stream. *)
 
-type t = private {
-  buf: bytes;
-      (** The buffer. Do not modify directly, use {!fill_buffer}
-            or {!fill_and_get} to refill it. *)
-  mutable len: int;  (** Length of the slice in [buf]. *)
-  mutable off: int;  (** Offset in [buf]. *)
-  fill_buffer: bytes -> int;
-      (** Refill [buf], return new [length]. The newly read bytes
-          must live in [buf[0..len]]. *)
-  close: unit -> unit;  (** Close the stream. Idempotent. *)
-}
+(** The implementation of buffered input streams.
+
+    @param buf the buffer to use internally. *)
+class virtual cls :
+  buf:Slice.t
+  -> object
+       inherit In.cls
+
+       method virtual refill : Slice.t -> unit
+       (** Implementation of the stream: this takes a slice,
+        resets its offset, and fills it with bytes. It must write
+        at least one byte in the slice, unless the underlying
+        input has reached its end. *)
+
+       method fill_buf : unit -> Slice.t
+       (** returns a slice into the [bic]'s internal buffer,
+        and ensures it's empty only if [bic.ic] is empty. *)
+
+       method consume : int -> unit
+       (** Consume [n] bytes from the inner buffer. This is only
+        valid if the last call to [fill_buf] returned a slice with
+        at least [n] bytes. *)
+
+       method input : bytes -> int -> int -> int
+       (** Default implementation of [input] using [fill_buf] *)
+     end
+
+type t = cls
+
+(** A version of [cls] that creates a new buffer. *)
+class virtual cls_with_default_buffer :
+  object
+    inherit cls
+  end
 
 val create :
-  ?buf:bytes -> ?close:(unit -> unit) -> fill_buffer:(bytes -> int) -> unit -> t
+  ?bytes:bytes -> ?close:(unit -> unit) -> refill:(bytes -> int) -> unit -> t
 (** Create a new buffered input stream.
-    @param fill_buffer will be called to refill the content of the buffer.
+    @param refill will be called to refill the content of the bytes,
+    returning how many bytes were added (starting at offset 0).
     @param buf the underlying buffer
     @raise Invalid_argument if the buffer's length is not at least 16. *)
 
@@ -24,51 +48,35 @@ val of_bytes : ?off:int -> ?len:int -> bytes -> t
     @param off initial offset (default 0)
     @param len length of the slice in the bytes. (default all available bytes from offset) *)
 
-val of_unix_fd : ?buf:Bytes.t -> ?close_noerr:bool -> Unix.file_descr -> t
+val of_unix_fd : ?bytes:bytes -> ?close_noerr:bool -> Unix.file_descr -> t
 (** Create an in stream from a raw Unix file descriptor. The file descriptor
     must be opened for reading. *)
 
-val of_in_channel : ?buf:bytes -> in_channel -> t
+val of_in_channel : ?bytes:bytes -> in_channel -> t
 (** Wrap a standard input channel. *)
 
 val open_file :
-  ?buf:bytes -> ?mode:int -> ?flags:Unix.open_flag list -> string -> t
+  ?bytes:bytes -> ?mode:int -> ?flags:Unix.open_flag list -> string -> t
 
 val with_open_file :
-  ?buf:bytes ->
+  ?bytes:bytes ->
   ?mode:int ->
   ?flags:Unix.open_flag list ->
   string ->
   (t -> 'a) ->
   'a
 
-val fill_buffer : t -> unit
-(** [fill_buffer bic] ensures that [bic.buf] is empty only if [bic.ic]
-      is empty. Always call this before looking at [bic.buf].
-*)
-
-val fill_and_get : t -> bytes * int * int
-(** Ensure the underlying buffer is not empty (unless end-of-input was reached),
-    and return the active slice of it as a tuple [bytes, offset, len].
-
-    Postconditions: [len = 0] if and only if the whole input stream has been consumed.
-*)
-
-val get_bytes : t -> bytes
-(** Direct access to the raw bytes of the underlying buffer. *)
-
-val get_off : t -> int
-(** Current offset in the underlying buffer. *)
-
-val get_len : t -> int
-(** Current length of the underlying buffer. *)
+val fill_buf : t -> Slice.t
+(** [fill_buffer bic] returns a slice into [bic]'s internal buffer,
+      and ensures it's empty only if [bic.ic]
+      is empty. *)
 
 val input : t -> bytes -> int -> int -> int
 (** Read into the given slice of bytes. *)
 
-val of_in : ?buf:bytes -> In.t -> t
+val of_in : ?bytes:bytes -> In.t -> t
 (** Make a buffered version of the input stream.
-    @param buf the buffer to use.
+    @param bytes the buffer to use.
     @raise Invalid_argument if the buffer's length is not at least 16. *)
 
 val consume : t -> int -> unit
@@ -102,4 +110,4 @@ val input_lines : ?buffer:Buffer.t -> t -> string list
 
 val to_iter : t -> (char -> unit) -> unit
 val to_seq : t -> char Seq.t
-val of_seq : ?buf:bytes -> char Seq.t -> t
+val of_seq : ?bytes:bytes -> char Seq.t -> t

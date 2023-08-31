@@ -1,18 +1,24 @@
 (** Input stream. *)
 
-type t = private {
-  input: bytes -> int -> int -> int;
-      (** Read into the slice. Returns [0] only if the
+class virtual cls :
+  object
+    method virtual input : bytes -> int -> int -> int
+    (** Read into the slice. Returns [0] only if the
         stream is closed. *)
-  close: unit -> unit;  (** Close the input. Must be idempotent. *)
-  as_fd: unit -> Unix.file_descr option;
-      (** Cast into a file descriptor, {b if} it actually is a direct wrapper of a
+
+    method close : unit -> unit
+    (** Close the input. Must be idempotent. *)
+
+    method as_fd : unit -> Unix.file_descr option
+    (** Cast into a file descriptor, {b if} it actually is a direct wrapper of a
         Unix FD. *)
-}
+  end
+
+type t = cls
 (** An input stream, i.e an incoming stream of bytes.
 
-      This can be a [string], an [int_channel], an [Unix.file_descr], a
-      decompression wrapper around another input stream, etc. *)
+    This can be a [string], an [int_channel], an [Unix.file_descr], a
+    decompression wrapper around another input stream, etc. *)
 
 val create :
   ?as_fd:(unit -> Unix.file_descr option) ->

@@ -1,17 +1,26 @@
 (** Output stream. *)
 
-type t = private {
-  output_char: char -> unit;  (** Output a single char *)
-  output: bytes -> int -> int -> unit;  (** Output slice *)
-  flush: unit -> unit;  (** Flush underlying buffer *)
-  close: unit -> unit;  (** Close the output. Must be idempotent. *)
-  as_fd: unit -> Unix.file_descr option;
-      (** Cast into a file descriptor, {b if} it actually is a direct wrapper of a
-        Unix FD. *)
-}
+class virtual cls :
+  object
+    method virtual output_char : char -> unit
+    (** Output a single char *)
+
+    method virtual output : bytes -> int -> int -> unit
+    (** Output slice *)
+
+    method flush : unit -> unit
+    (** Flush underlying buffer *)
+
+    method close : unit -> unit
+    (** Close the output. Must be idempotent. *)
+
+    method as_fd : unit -> Unix.file_descr option
+  end
+
+type t = cls
 (** An output stream, ie. a place into which we can write bytes.
 
-      This can be a [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
+    This can be a [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
 
 val create :
   ?as_fd:(unit -> Unix.file_descr option) ->

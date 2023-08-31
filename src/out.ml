@@ -1,35 +1,52 @@
-type t = {
-  output_char: char -> unit;  (** Output a single char *)
-  output: bytes -> int -> int -> unit;  (** Output slice *)
-  flush: unit -> unit;  (** Flush underlying buffer *)
-  close: unit -> unit;  (** Close the output. Must be idempotent. *)
-  as_fd: unit -> Unix.file_descr option;
-}
+class virtual cls =
+  object
+    method virtual output_char : char -> unit
+    method virtual output : bytes -> int -> int -> unit
+    method flush () = ()
+    method close () = ()
+    method as_fd () : Unix.file_descr option = None
+  end
+
+type t = cls
 
 let create ?(as_fd = fun () -> None) ?(flush = ignore) ?(close = ignore)
     ~output_char ~output () : t =
-  { as_fd; flush; close; output_char; output }
+  object
+    inherit cls
+    method! flush () = flush ()
+    method! close () = close ()
+    method output_char c = output_char c
+    method output bs i len = output bs i len
+    method! as_fd () = as_fd ()
+  end
 
-let dummy : t = create ~output_char:ignore ~output:(fun _ _ _ -> ()) ()
+let dummy : t =
+  object
+    inherit cls
+    method output_char _ = ()
+    method output _ _ _ = ()
+  end
 
 (** [of_out_channel oc] wraps the channel into a {!Out_channel.t}.
       @param close_noerr if true, then closing the result uses [close_out_noerr]
       instead of [close_out] to close [oc] *)
 let of_out_channel ?(close_noerr = false) (oc : out_channel) : t =
-  {
-    output_char = (fun c -> output_char oc c);
-    output = (fun buf i len -> output oc buf i len);
-    flush = (fun () -> flush oc);
-    close =
-      (fun () ->
-        if close_noerr then
-          close_out_noerr oc
-        else (
-          flush oc;
-          close_out oc
-        ));
-    as_fd = (fun () -> Some (Unix.descr_of_out_channel oc));
-  }
+  object
+    inherit cls
+    method output_char c = output_char oc c
+    method output bs i len = output oc bs i len
+
+    method! close () =
+      if close_noerr then
+        close_out_noerr oc
+      else (
+        flush oc;
+        close_out oc
+      )
+
+    method! flush () = flush oc
+    method! as_fd () = Some (Unix.descr_of_out_channel oc)
+  end
 
 let of_unix_fd fd : t = of_out_channel (Unix.out_channel_of_descr fd)
 
@@ -40,39 +57,37 @@ let open_file ?(mode = 0o644) ?(flags = [ Unix.O_WRONLY; Unix.O_CREAT ])
 
 let with_open_file ?mode ?flags filename f =
   let oc = open_file ?mode ?flags filename in
-  Fun.protect ~finally:oc.close (fun () -> f oc)
+  Fun.protect ~finally:oc#close (fun () -> f oc)
 
 let of_buffer (buf : Buffer.t) : t =
-  {
-    output_char = Buffer.add_char buf;
-    output = Buffer.add_subbytes buf;
-    flush = ignore;
-    close = ignore;
-    as_fd = (fun () -> None);
-  }
+  object
+    inherit cls
+    method output_char c = Buffer.add_char buf c
+    method output bs i len = Buffer.add_subbytes buf bs i len
+  end
 
 (** Output the buffer slice into this channel *)
-let[@inline] output_char (self : t) c : unit = self.output_char c
+let[@inline] output_char (self : t) c : unit = self#output_char c
 
 (** Output the buffer slice into this channel *)
-let[@inline] output (self : t) buf i len : unit = self.output buf i len
+let[@inline] output (self : t) buf i len : unit = self#output buf i len
 
 let[@inline] output_string (self : t) (str : string) : unit =
-  self.output (Bytes.unsafe_of_string str) 0 (String.length str)
+  self#output (Bytes.unsafe_of_string str) 0 (String.length str)
 
 (** Close the channel. *)
-let[@inline] close self : unit = self.close ()
+let[@inline] close self : unit = self#close ()
 
 (** Flush (ie. force write) any buffered bytes. *)
-let[@inline] flush self : unit = self.flush ()
+let[@inline] flush self : unit = self#flush ()
 
 let seek self i : unit =
-  match self.as_fd () with
+  match self#as_fd () with
   | Some fd -> ignore (Unix.lseek fd i Unix.SEEK_SET : int)
   | None -> raise (Sys_error "cannot seek")
 
 let pos self : int =
-  match self.as_fd () with
+  match self#as_fd () with
   | Some fd -> Unix.lseek fd 0 Unix.SEEK_CUR
   | None -> raise (Sys_error "cannot get pos")
 

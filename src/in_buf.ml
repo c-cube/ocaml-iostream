@@ -96,10 +96,7 @@ let with_open_file ?bytes ?mode ?flags filename f =
   let ic = open_file ?bytes ?mode ?flags filename in
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
-let into_in (self : t) : In.t =
-  let input b i len = input self b i len in
-  let close () = close self in
-  In.create ~close ~input ()
+let[@inline] into_in (self : t) : In.t = (self :> In.cls)
 
 let copy_into (self : t) (oc : Out.t) : unit =
   let continue = ref true in

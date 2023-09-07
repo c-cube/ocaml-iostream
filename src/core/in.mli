@@ -4,9 +4,9 @@
 
     This can be a [string], an [int_channel], an [Unix.file_descr], a
     decompression wrapper around another input stream, etc. *)
-class virtual t :
+class type t =
   object
-    method virtual input : bytes -> int -> int -> int
+    method input : bytes -> int -> int -> int
     (** Read into the slice. Returns [0] only if the
         stream is closed. *)
 
@@ -14,7 +14,7 @@ class virtual t :
     (** Close the input. Must be idempotent. *)
   end
 
-class virtual t_seekable :
+class type t_seekable =
   object
     inherit t
     inherit Seekable.t
@@ -26,17 +26,23 @@ val create :
 val empty : t
 (** Empty input, contains 0 bytes. *)
 
-val of_unix_fd : ?close_noerr:bool -> Unix.file_descr -> t_seekable
-(** Create an in stream from a raw Unix file descriptor. The file descriptor
-      must be opened for reading. *)
-
 val of_in_channel : ?close_noerr:bool -> in_channel -> t_seekable
 (** Wrap a standard input channel. *)
 
-val open_file : ?mode:int -> ?flags:Unix.open_flag list -> string -> t_seekable
+val open_file :
+  ?close_noerr:bool ->
+  ?mode:int ->
+  ?flags:open_flag list ->
+  string ->
+  t_seekable
 
 val with_open_file :
-  ?mode:int -> ?flags:Unix.open_flag list -> string -> (t_seekable -> 'a) -> 'a
+  ?close_noerr:bool ->
+  ?mode:int ->
+  ?flags:open_flag list ->
+  string ->
+  (t_seekable -> 'a) ->
+  'a
 
 val of_string : ?off:int -> ?len:int -> string -> t_seekable
 (** An input channel reading from the string.

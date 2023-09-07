@@ -2,11 +2,19 @@ open Slice
 
 let _default_buf_size = 4_096
 
-class virtual t ~buf =
-  object (self)
+class type t =
+  object
     inherit In.t
+    method fill_buf : unit -> Slice.t
+    method consume : int -> unit
+    method input : bytes -> int -> int -> int
+  end
+
+class virtual t_from_refill ?(buf = Slice.create _default_buf_size) () =
+  object (self)
     val slice : Slice.t = buf
     method virtual refill : Slice.t -> unit
+    method close () = ()
 
     method fill_buf () : Slice.t =
       if slice.len = 0 then self#refill slice;
@@ -28,25 +36,21 @@ class virtual t ~buf =
     (** Default implementation of [input] using [fill_buf] *)
   end
 
-class virtual t_with_default_buffer =
-  object
-    inherit t ~buf:(Slice.create _default_buf_size)
-  end
-
 let[@inline] consume (self : #t) n = self#consume n
 let[@inline] fill_buf (self : #t) : Slice.t = self#fill_buf ()
 
 let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
     () : t =
   let buf = Slice.of_bytes bytes in
-  object
-    inherit t ~buf
-    method! close () = close ()
+  (object
+     inherit t_from_refill ~buf ()
+     method! close () = close ()
 
-    method refill buf : unit =
-      buf.off <- 0;
-      buf.len <- refill buf.bytes
-  end
+     method refill buf : unit =
+       buf.off <- 0;
+       buf.len <- refill buf.bytes
+   end
+    :> t)
 
 let[@inline] input self b i len : int = self#input b i len
 let[@inline] close self = self#close ()
@@ -63,27 +67,26 @@ let of_bytes ?(off = 0) ?len bytes : t =
 
   let buf = { bytes; off; len } in
 
-  object
-    inherit t ~buf
+  (object
+     inherit t_from_refill ~buf ()
 
-    method refill buf =
-      (* nothing to refill *)
-      buf.off <- 0;
-      buf.len <- 0
-  end
+     method refill buf =
+       (* nothing to refill *)
+       buf.off <- 0;
+       buf.len <- 0
+   end
+    :> t)
 
 let of_in ?(bytes = Bytes.create _default_buf_size) ic : t =
-  object
-    inherit t ~buf:(Slice.of_bytes bytes)
-    method! close () = In.close ic
+  (object
+     inherit t_from_refill ~buf:(Slice.of_bytes bytes) ()
+     method! close () = In.close ic
 
-    method refill buf =
-      buf.off <- 0;
-      buf.len <- In.input ic buf.bytes 0 (Bytes.length buf.bytes)
-  end
-
-let of_unix_fd ?bytes ?close_noerr fd : t =
-  of_in ?bytes (In.of_unix_fd ?close_noerr fd)
+     method refill buf =
+       buf.off <- 0;
+       buf.len <- In.input ic buf.bytes 0 (Bytes.length buf.bytes)
+   end
+    :> t)
 
 let of_in_channel ?bytes ic : t = of_in ?bytes (In.of_in_channel ic)
 
@@ -214,23 +217,23 @@ let to_seq (self : #t) : char Seq.t =
 
 let of_seq ?(bytes = Bytes.create _default_buf_size) seq : t =
   let seq = ref seq in
+  (object
+     inherit t_from_refill ~buf:(Slice.of_bytes bytes) ()
 
-  object
-    inherit t ~buf:(Slice.of_bytes bytes)
-
-    method refill bs =
-      let rec loop idx =
-        if idx >= Bytes.length bs.bytes then
-          idx
-        else (
-          match !seq () with
-          | Seq.Nil -> idx
-          | Seq.Cons (c, seq_tl) ->
-            seq := seq_tl;
-            Bytes.set bs.bytes idx c;
-            loop (idx + 1)
-        )
-      in
-      bs.off <- 0;
-      bs.len <- loop 0
-  end
+     method refill bs =
+       let rec loop idx =
+         if idx >= Bytes.length bs.bytes then
+           idx
+         else (
+           match !seq () with
+           | Seq.Nil -> idx
+           | Seq.Cons (c, seq_tl) ->
+             seq := seq_tl;
+             Bytes.set bs.bytes idx c;
+             loop (idx + 1)
+         )
+       in
+       bs.off <- 0;
+       bs.len <- loop 0
+   end
+    :> t)

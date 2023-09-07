@@ -3,12 +3,12 @@
 (** An output stream, ie. a place into which we can write bytes.
 
     This can be a [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
-class virtual t :
+class type t =
   object
-    method virtual output_char : char -> unit
+    method output_char : char -> unit
     (** Output a single char *)
 
-    method virtual output : bytes -> int -> int -> unit
+    method output : bytes -> int -> int -> unit
     (** Output slice *)
 
     method flush : unit -> unit
@@ -18,7 +18,7 @@ class virtual t :
     (** Close the output. Must be idempotent. *)
   end
 
-class virtual t_seekable :
+class type t_seekable =
   object
     inherit t
     inherit Seekable.t
@@ -39,20 +39,27 @@ val dummy : t
 val of_out_channel : ?close_noerr:bool -> out_channel -> t_seekable
 (** Wrap an out channel. *)
 
-val of_unix_fd : Unix.file_descr -> t_seekable
-(** Output stream directly writing into the given Unix file descriptor. *)
-
 val of_buffer : Buffer.t -> t
 (** [of_buffer buf] is an output channel that writes directly into [buf].
     [flush] and [close] have no effect. *)
 
-val open_file : ?mode:int -> ?flags:Unix.open_flag list -> string -> t_seekable
+val open_file :
+  ?close_noerr:bool ->
+  ?mode:int ->
+  ?flags:open_flag list ->
+  string ->
+  t_seekable
 (** [open_file file] creates an out stream writing into the given file.
     @param mode permissions for the file creation
     @param flags set of unix flags to use. It must contain write permissions. *)
 
 val with_open_file :
-  ?mode:int -> ?flags:Unix.open_flag list -> string -> (t_seekable -> 'a) -> 'a
+  ?close_noerr:bool ->
+  ?mode:int ->
+  ?flags:open_flag list ->
+  string ->
+  (t_seekable -> 'a) ->
+  'a
 
 val output_char : #t -> char -> unit
 (** Output a single char *)

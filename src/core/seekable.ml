@@ -1,7 +1,7 @@
-class virtual t =
+class type t =
   object
-    method virtual seek : int -> unit
-    method virtual pos : unit -> int
+    method seek : int -> unit
+    method pos : unit -> int
   end
 
 let[@inline] seek self i : unit = self#seek i

@@ -1,37 +1,38 @@
 (** Buffered input stream. *)
 
-(** The implementation of buffered input streams.
+(** The implementation of buffered input streams. *)
+class type t =
+  object
+    inherit In.t
 
-    @param buf the buffer to use internally. *)
-class virtual t :
-  buf:Slice.t
+    method fill_buf : unit -> Slice.t
+    (** returns a slice into the [bic]'s internal buffer,
+        and ensures it's empty only if [bic.ic] is empty. *)
+
+    method consume : int -> unit
+    (** Consume [n] bytes from the inner buffer. This is only
+        valid if the last call to [fill_buf] returned a slice with
+        at least [n] bytes. *)
+
+    method input : bytes -> int -> int -> int
+    (** Default implementation of [input] using [fill_buf] *)
+  end
+
+(** An implementation of [t] that relies on a {!Slice.t} as buffer,
+      along with a [refill] method to fill the buffer with data when
+      it's entirely consumed. *)
+class virtual t_from_refill :
+  ?buf:Slice.t
+  -> unit
   -> object
-       inherit In.t
-
        method virtual refill : Slice.t -> unit
        (** Implementation of the stream: this takes a slice,
         resets its offset, and fills it with bytes. It must write
         at least one byte in the slice, unless the underlying
         input has reached its end. *)
 
-       method fill_buf : unit -> Slice.t
-       (** returns a slice into the [bic]'s internal buffer,
-        and ensures it's empty only if [bic.ic] is empty. *)
-
-       method consume : int -> unit
-       (** Consume [n] bytes from the inner buffer. This is only
-        valid if the last call to [fill_buf] returned a slice with
-        at least [n] bytes. *)
-
-       method input : bytes -> int -> int -> int
-       (** Default implementation of [input] using [fill_buf] *)
+       inherit t
      end
-
-(** A version of [cls] that creates a new buffer. *)
-class virtual t_with_default_buffer :
-  object
-    inherit t
-  end
 
 val create :
   ?bytes:bytes -> ?close:(unit -> unit) -> refill:(bytes -> int) -> unit -> t
@@ -46,20 +47,16 @@ val of_bytes : ?off:int -> ?len:int -> bytes -> t
     @param off initial offset (default 0)
     @param len length of the slice in the bytes. (default all available bytes from offset) *)
 
-val of_unix_fd : ?bytes:bytes -> ?close_noerr:bool -> Unix.file_descr -> t
-(** Create an in stream from a raw Unix file descriptor. The file descriptor
-    must be opened for reading. *)
-
 val of_in_channel : ?bytes:bytes -> in_channel -> t
 (** Wrap a standard input channel. *)
 
 val open_file :
-  ?bytes:bytes -> ?mode:int -> ?flags:Unix.open_flag list -> string -> t
+  ?bytes:bytes -> ?mode:int -> ?flags:open_flag list -> string -> t
 
 val with_open_file :
   ?bytes:bytes ->
   ?mode:int ->
-  ?flags:Unix.open_flag list ->
+  ?flags:open_flag list ->
   string ->
   (t -> 'a) ->
   'a

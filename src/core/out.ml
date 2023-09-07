@@ -1,12 +1,12 @@
-class virtual t =
+class type t =
   object
-    method virtual output_char : char -> unit
-    method virtual output : bytes -> int -> int -> unit
-    method flush () = ()
-    method close () = ()
+    method output_char : char -> unit
+    method output : bytes -> int -> int -> unit
+    method flush : unit -> unit
+    method close : unit -> unit
   end
 
-class virtual t_seekable =
+class type t_seekable =
   object
     inherit t
     inherit Seekable.t
@@ -14,16 +14,16 @@ class virtual t_seekable =
 
 let create ?(flush = ignore) ?(close = ignore) ~output_char ~output () : t =
   object
-    inherit t
-    method! flush () = flush ()
-    method! close () = close ()
+    method flush () = flush ()
+    method close () = close ()
     method output_char c = output_char c
     method output bs i len = output bs i len
   end
 
 let dummy : t =
   object
-    inherit t
+    method flush () = ()
+    method close () = ()
     method output_char _ = ()
     method output _ _ _ = ()
   end
@@ -33,11 +33,10 @@ let dummy : t =
       instead of [close_out] to close [oc] *)
 let of_out_channel ?(close_noerr = false) (oc : out_channel) : t_seekable =
   object
-    inherit t
     method output_char c = output_char oc c
     method output bs i len = output oc bs i len
 
-    method! close () =
+    method close () =
       if close_noerr then
         close_out_noerr oc
       else (
@@ -45,25 +44,25 @@ let of_out_channel ?(close_noerr = false) (oc : out_channel) : t_seekable =
         close_out oc
       )
 
-    method! flush () = flush oc
+    method flush () = flush oc
     method seek i = seek_out oc i
     method pos () = pos_out oc
   end
 
-let of_unix_fd fd : t_seekable = of_out_channel (Unix.out_channel_of_descr fd)
+let open_file ?close_noerr ?(mode = 0o644)
+    ?(flags = [ Open_binary; Open_wronly; Open_creat; Open_trunc ]) filename :
+    t_seekable =
+  let oc = open_out_gen flags mode filename in
+  of_out_channel ?close_noerr oc
 
-let open_file ?(mode = 0o644) ?(flags = [ Unix.O_WRONLY; Unix.O_CREAT ])
-    filename : t_seekable =
-  let fd = Unix.openfile filename flags mode in
-  of_unix_fd fd
-
-let with_open_file ?mode ?flags filename f =
-  let oc = open_file ?mode ?flags filename in
+let with_open_file ?close_noerr ?mode ?flags filename f =
+  let oc = open_file ?close_noerr ?mode ?flags filename in
   Fun.protect ~finally:oc#close (fun () -> f oc)
 
 let of_buffer (buf : Buffer.t) : t =
   object
-    inherit t
+    method close () = ()
+    method flush () = ()
     method output_char c = Buffer.add_char buf c
     method output bs i len = Buffer.add_subbytes buf bs i len
   end

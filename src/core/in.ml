@@ -1,10 +1,14 @@
-class virtual t =
+class type t =
   object
-    method virtual input : bytes -> int -> int -> int
-    method close () = ()
+    method input : bytes -> int -> int -> int
+    (** Read into the slice. Returns [0] only if the
+        stream is closed. *)
+
+    method close : unit -> unit
+    (** Close the input. Must be idempotent. *)
   end
 
-class virtual t_seekable =
+class type t_seekable =
   object
     inherit t
     inherit Seekable.t
@@ -18,17 +22,15 @@ let create ?(close = ignore) ~input () : t =
 
 let empty : t =
   object
-    inherit t
+    method close () = ()
     method input _ _ _ = 0
   end
 
 let of_in_channel ?(close_noerr = false) (ic : in_channel) : t_seekable =
   object
-    inherit t
-    inherit Seekable.t
     method input buf i len = input ic buf i len
 
-    method! close () =
+    method close () =
       if close_noerr then
         close_in_noerr ic
       else
@@ -38,28 +40,13 @@ let of_in_channel ?(close_noerr = false) (ic : in_channel) : t_seekable =
     method pos () = pos_in ic
   end
 
-let of_unix_fd ?(close_noerr = false) (fd : Unix.file_descr) : t_seekable =
-  object
-    inherit t
-    method input buf i len = Unix.read fd buf i len
+let open_file ?close_noerr ?(mode = 0o644)
+    ?(flags = [ Open_rdonly; Open_binary ]) filename : t_seekable =
+  let ic = open_in_gen flags mode filename in
+  of_in_channel ?close_noerr ic
 
-    method! close () =
-      if close_noerr then (
-        try Unix.close fd with _ -> ()
-      ) else
-        Unix.close fd
-
-    method seek i = ignore (Unix.lseek fd i Unix.SEEK_SET : int)
-    method pos () : int = Unix.lseek fd 0 Unix.SEEK_CUR
-  end
-
-let open_file ?(mode = 0o644) ?(flags = [ Unix.O_RDONLY ]) filename : t_seekable
-    =
-  let fd = Unix.openfile filename flags mode in
-  of_unix_fd fd
-
-let with_open_file ?mode ?flags filename f =
-  let ic = open_file ?mode ?flags filename in
+let with_open_file ?close_noerr ?mode ?flags filename f =
+  let ic = open_file ?close_noerr ?mode ?flags filename in
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
 let of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
@@ -75,9 +62,6 @@ let of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
   let len = ref len0 in
 
   object
-    inherit t
-    inherit Seekable.t
-
     method input b_out i_out len_out =
       let n = min !len len_out in
       Bytes.blit b !i b_out i_out n;
@@ -85,7 +69,7 @@ let of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
       len := !len - n;
       n
 
-    method! close () = len := 0
+    method close () = len := 0
     method pos () = !i
 
     method seek j =

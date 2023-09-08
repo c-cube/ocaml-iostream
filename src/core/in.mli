@@ -57,7 +57,28 @@ val of_bytes : ?off:int -> ?len:int -> bytes -> t_seekable
 
 val input : #t -> bytes -> int -> int -> int
 (** Read bytes into the given buffer. This returns [0] only if
-    the stream has reached its end. *)
+    the stream has reached its end.
+    @raise Invalid_argument if the arguments do not denote a valid slice.
+*)
+
+val input_all : ?buf:bytes -> #t -> string
+(** [input_all ic] reads the whole content of [ic] into a string.
+    @param buf the initial buffer to use internally.
+    @since 0.2 *)
+
+val really_input : #t -> bytes -> int -> int -> unit
+(** Same as [input], but reads exactly the demanded amount of bytes.
+    @raise Invalid_argument if the arguments do not denote a valid slice.
+    @raise End_of_file if the input does not contain enough data.
+    @since 0.2
+*)
+
+val really_input_string : #t -> int -> string
+(** [really_input_string ic n] reads exactly [n] bytes of [ic]
+    and returns them as a string.
+    @raise End_of_file if the input does not contain enough data.
+    @since 0.2
+*)
 
 val concat : t list -> t
 (** Read from each stream, in order *)

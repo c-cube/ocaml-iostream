@@ -1,6 +1,8 @@
 open Iostream
 open OUnit2
 
+let spf = Printf.sprintf
+
 let t_of_str =
   "in1" >:: fun _ctx ->
   let ic = In.of_string "hello world" in
@@ -69,6 +71,22 @@ let t_map =
   let i = In.of_string "hello world!" |> In.map_char Char.uppercase_ascii in
   assert_equal "HELLO WORLD!" (In_buf.of_in i |> In_buf.input_all)
 
+let t_read_all =
+  "read all form large file" >:: fun ctx ->
+  let path, oc = OUnit2.bracket_tmpfile ~prefix:"t_in" ~suffix:".txt" ctx in
+  (* prepare file *)
+  let content = List.init 20 (fun _ -> "lorem ipsum") |> String.concat "," in
+  for _i = 1 to 1_000 do
+    output_string oc content
+  done;
+  flush oc;
+  close_out oc;
+
+  let all_content = In.with_open_file path In.input_all in
+  assert_equal ~printer:(spf "%d")
+    (1_000 * String.length content)
+    (String.length all_content);
+  ()
 
 let t_seek =
   "seek in string" >:: fun _ctx ->
@@ -97,6 +115,7 @@ let suite =
          t_close_str;
          t_big_read;
          t_concat;
+         t_read_all;
          t_map;
          t_seek;
        ]

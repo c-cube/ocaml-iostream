@@ -89,7 +89,20 @@ let[@inline] input (self : #t) buf i len = self#input buf i len
 (** Close the channel. *)
 let[@inline] close self : unit = self#close ()
 
-let copy_into ?(buf = Bytes.create 4_096) (ic : #t) (oc : Out.t) : unit =
+let rec really_input (self : #t) buf i len =
+  if len > 0 then (
+    let n = input self buf i len in
+    if n = 0 then raise End_of_file;
+    (really_input [@tailrec]) self buf (i + n) (len - n)
+  )
+
+let really_input_string self n : string =
+  let buf = Bytes.create n in
+  really_input self buf 0 n;
+  Bytes.unsafe_to_string buf
+
+let copy_into ?(buf = Bytes.create _default_buf_size) (ic : #t) (oc : Out.t) :
+    unit =
   let continue = ref true in
   while !continue do
     let len = input ic buf 0 (Bytes.length buf) in
@@ -129,3 +142,34 @@ let map_char f (ic : #t) : t =
     n
   in
   create ~close ~input ()
+
+let input_all ?(buf = Bytes.create 128) (self : #t) : string =
+  let buf = ref buf in
+  let i = ref 0 in
+
+  let[@inline] full_ () = !i = Bytes.length !buf in
+
+  let grow_ () =
+    let old_size = Bytes.length !buf in
+    let new_size = min Sys.max_string_length (old_size + (old_size / 4) + 10) in
+    if old_size = new_size then
+      failwith "input_all: maximum input size exceeded";
+    let new_buf = Bytes.extend !buf 0 (new_size - old_size) in
+    buf := new_buf
+  in
+
+  let rec loop () =
+    if full_ () then grow_ ();
+    let available = Bytes.length !buf - !i in
+    let n = input self !buf !i available in
+    if n > 0 then (
+      i := !i + n;
+      (loop [@tailrec]) ()
+    )
+  in
+  loop ();
+
+  if full_ () then
+    Bytes.unsafe_to_string !buf
+  else
+    Bytes.sub_string !buf 0 !i

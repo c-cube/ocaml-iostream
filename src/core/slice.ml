@@ -24,3 +24,11 @@ let consume (self : t) n : unit =
   if n < 0 || n > self.len then invalid_arg "In_buf.consume_buf";
   self.off <- self.off + n;
   self.len <- self.len - n
+
+(** find index of [c] in slice, or raise [Not_found] *)
+let find_index_exn (self : t) c : int =
+  let j = Bytes.index_from self.bytes self.off c in
+  if j < self.off + self.len then
+    j
+  else
+    raise Not_found

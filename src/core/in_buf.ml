@@ -1,6 +1,5 @@
 open Slice
-
-let _default_buf_size = 4_096
+open Common_
 
 class type t =
   object
@@ -120,21 +119,13 @@ let input_all ?buffer:(buf = Buffer.create 32) self : string =
   input_all_into_buffer self buf;
   Buffer.contents buf
 
-(** find index of [c] in slice, or raise [Not_found] *)
-let index_in_slice_ bs i len c : int =
-  let j = Bytes.index_from bs i c in
-  if j < i + len then
-    j
-  else
-    raise Not_found
-
 let input_line ?buffer (self : #t) : string option =
   (* see if we can directly extract a line from current buffer *)
   let slice = fill_buf self in
   if slice.len = 0 then
     None
   else (
-    match index_in_slice_ slice.bytes slice.off slice.len '\n' with
+    match Slice.find_index_exn slice '\n' with
     | j ->
       (* easy case: buffer already contains a full line *)
       let line = Bytes.sub_string slice.bytes slice.off (j - slice.off) in
@@ -159,7 +150,7 @@ let input_line ?buffer (self : #t) : string option =
       while !continue do
         let bs = fill_buf self in
         if bs.len = 0 then continue := false (* EOF *);
-        match index_in_slice_ bs.bytes bs.off bs.len '\n' with
+        match Slice.find_index_exn bs '\n' with
         | j ->
           Buffer.add_subbytes buf bs.bytes bs.off (j - bs.off);
           (* without '\n' *)

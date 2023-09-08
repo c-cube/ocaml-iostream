@@ -1,7 +1,6 @@
 (library
  (name iostream)
- (public_name iostream)
- (libraries unix))
+ (public_name iostream))
 
 (env
   (_ (flags :standard -warn-error -a+8)))

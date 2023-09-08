@@ -19,6 +19,8 @@
    (ocaml (>= 4.08))
    (dune (>= 2.0))
    (ounit2 :with-test))
+ (depopts
+   base-unix)
  (tags
   (topics io channels streams)))
 

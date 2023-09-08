@@ -54,11 +54,11 @@ let t_concat =
   let i =
     In.concat
       [
-        In.of_string "hello";
+        (In.of_string "hello" :> In.t);
         In.empty;
-        In.of_string " ";
-        In.of_string "world";
-        In.of_string "!";
+        (In.of_string " " :> In.t);
+        (In.of_string "world" :> In.t);
+        (In.of_string "!" :> In.t);
       ]
   in
   let r = In_buf.of_in i |> In_buf.input_all in

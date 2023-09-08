@@ -1,3 +1,5 @@
+open Common_
+
 class type t =
   object
     method input : bytes -> int -> int -> int
@@ -50,32 +52,31 @@ let with_open_file ?close_noerr ?mode ?flags filename f =
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
 let of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
-  (* invariant: [!i + !len] is constant *)
+  (* i: current position in [b] *)
   let i = ref off in
-  let len0 =
+
+  let len =
     match len with
     | Some n ->
       if n > Bytes.length b - off then invalid_arg "Iostream.In.of_bytes";
       n
     | None -> Bytes.length b - off
   in
-  let len = ref len0 in
+  let end_ = off + len in
 
   object
     method input b_out i_out len_out =
-      let n = min !len len_out in
+      let n = min (end_ - !i) len_out in
       Bytes.blit b !i b_out i_out n;
       i := !i + n;
-      len := !len - n;
       n
 
-    method close () = len := 0
-    method pos () = !i
+    method close () = i := end_
+    method pos () = !i - off (* pos starts at 0 *)
 
     method seek j =
-      if j < off || j > off + len0 then
-        raise (Sys_error "Iostream.In.see: invalid pos");
-      i := j
+      if j < 0 || j > len then raise (Sys_error "Iostream.In.seek: invalid pos");
+      i := j + off
   end
 
 let of_string ?off ?len s : t_seekable =

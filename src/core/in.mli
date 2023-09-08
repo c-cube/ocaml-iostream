@@ -14,6 +14,7 @@ class type t =
     (** Close the input. Must be idempotent. *)
   end
 
+(** An input stream that is also seekable. *)
 class type t_seekable =
   object
     inherit t

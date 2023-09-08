@@ -77,6 +77,10 @@ val flush : #t -> unit
 val output_string : #t -> string -> unit
 (** Output the whole string. *)
 
+val output_line : #t -> string -> unit
+(** Output the whole string followed by ['\n'].
+    @since 0.2 *)
+
 val output_lines : #t -> string Seq.t -> unit
 (** Output a series of lines, each terminated by ['\n']. *)
 

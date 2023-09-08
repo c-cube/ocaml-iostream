@@ -76,6 +76,10 @@ let[@inline] output (self : #t) buf i len : unit = self#output buf i len
 let[@inline] output_string (self : #t) (str : string) : unit =
   self#output (Bytes.unsafe_of_string str) 0 (String.length str)
 
+let output_line (self : #t) (str : string) : unit =
+  output_string self str;
+  output_char self '\n'
+
 (** Close the channel. *)
 let[@inline] close self : unit = self#close ()
 
@@ -86,12 +90,7 @@ let output_int self i =
   let s = string_of_int i in
   output_string self s
 
-let output_lines self seq =
-  Seq.iter
-    (fun s ->
-      output_string self s;
-      output_char self '\n')
-    seq
+let output_lines self seq = Seq.iter (output_line self) seq
 
 let tee (l : t list) : t =
   match l with

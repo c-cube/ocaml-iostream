@@ -69,6 +69,25 @@ let t_map =
   let i = In.of_string "hello world!" |> In.map_char Char.uppercase_ascii in
   assert_equal "HELLO WORLD!" (In_buf.of_in i |> In_buf.input_all)
 
+
+let t_seek =
+  "seek in string" >:: fun _ctx ->
+  let ic = In.of_string ~off:4 ~len:16 "oh hello world, how are you?" in
+  assert_equal ~printer:string_of_int 0 (Seekable.pos ic);
+  assert_equal ~printer:(spf "%S") "ello w" (In.really_input_string ic 6);
+  assert_equal ~printer:string_of_int 6 (Seekable.pos ic);
+  assert_equal ~printer:(spf "%S") "orld, how " (In.really_input_string ic 10);
+  assert_equal ~printer:string_of_int 16 (Seekable.pos ic);
+  assert_raises End_of_file (fun () -> In.really_input_string ic 1);
+  (* seek back to 0 *)
+  Seekable.seek ic 0;
+  assert_equal ~printer:string_of_int 0 (Seekable.pos ic);
+  assert_equal ~printer:(spf "%S") "ello w" (In.really_input_string ic 6);
+  assert_equal ~printer:string_of_int 6 (Seekable.pos ic);
+  assert_equal ~printer:(spf "%S") "orld, how " (In.really_input_string ic 10);
+
+  ()
+
 let suite =
   "in"
   >::: [
@@ -79,6 +98,7 @@ let suite =
          t_big_read;
          t_concat;
          t_map;
+         t_seek;
        ]
 
 let () = OUnit2.run_test_tt_main suite

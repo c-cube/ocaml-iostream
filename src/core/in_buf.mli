@@ -61,48 +61,48 @@ val with_open_file :
   (t -> 'a) ->
   'a
 
-val fill_buf : t -> Slice.t
+val fill_buf : #t -> Slice.t
 (** [fill_buffer bic] returns a slice into [bic]'s internal buffer,
       and ensures it's empty only if [bic.ic]
       is empty. *)
 
-val input : t -> bytes -> int -> int -> int
+val input : #t -> bytes -> int -> int -> int
 (** Read into the given slice of bytes. *)
 
-val of_in : ?bytes:bytes -> In.t -> t
+val of_in : ?bytes:bytes -> #In.t -> t
 (** Make a buffered version of the input stream.
     @param bytes the buffer to use.
     @raise Invalid_argument if the buffer's length is not at least 16. *)
 
-val consume : t -> int -> unit
+val consume : #t -> int -> unit
 (** [consume bic n] consumes [n] bytes from [bic].
       Precondition: [n <= get_len bic], ie. one cannot consume bytes that have
       not yet been obtained via {!fill_buffer} or {!fill_and_get}. *)
 
-val close : t -> unit
+val close : #t -> unit
 (** Close the input stream. *)
 
-val into_in : t -> In.t
+val into_in : #t -> In.t
 (** Cast into a {!In.t}. Note that this does allocate a new record, so it's
       advised to not perform this operation in a tight loop.
       The function {!input} can be called directly on the buffered stream if needed. *)
 
-val input_all_into_buffer : t -> Buffer.t -> unit
+val input_all_into_buffer : #t -> Buffer.t -> unit
 (** Read the whole content into the given buffer. *)
 
-val input_all : ?buffer:Buffer.t -> t -> string
+val input_all : ?buffer:Buffer.t -> #t -> string
 (** Input all the content into a string *)
 
-val copy_into : t -> Out.t -> unit
+val copy_into : #t -> #Out.t -> unit
 (** Copy the entire stream into the given output. *)
 
-val input_line : ?buffer:Buffer.t -> t -> string option
+val input_line : ?buffer:Buffer.t -> #t -> string option
 (** Read a line from the input. Return [None] if the stream is empty.
    @param buffer a buffer to use to hold the line. *)
 
-val input_lines : ?buffer:Buffer.t -> t -> string list
+val input_lines : ?buffer:Buffer.t -> #t -> string list
 (** Read all lines from the input. *)
 
-val to_iter : t -> (char -> unit) -> unit
-val to_seq : t -> char Seq.t
+val to_iter : #t -> (char -> unit) -> unit
+val to_seq : #t -> char Seq.t
 val of_seq : ?bytes:bytes -> char Seq.t -> t

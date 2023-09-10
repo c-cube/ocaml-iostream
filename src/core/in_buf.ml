@@ -98,7 +98,7 @@ let with_open_file ?bytes ?mode ?flags filename f =
 
 let[@inline] into_in (self : #t) : In.t = (self :> In.t)
 
-let copy_into (self : #t) (oc : Out.t) : unit =
+let copy_into (self : #t) (oc : #Out.t) : unit =
   let continue = ref true in
   while !continue do
     let buf = fill_buf self in

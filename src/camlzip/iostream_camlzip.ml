@@ -64,7 +64,7 @@ let transduce_in_ ~mode (ic : #In_buf.t) : In.t =
             | Inflate -> Zlib.inflate
             | Deflate _ -> Zlib.deflate)
               zlib_str islice.bytes islice.off islice.len buf i len
-              Zlib.Z_FULL_FLUSH
+              Zlib.Z_FINISH
           in
           assert (used_in = 0);
           if finished then state := Done;
@@ -95,12 +95,6 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : Out.t) : Out.t =
     | Inflate -> Zlib.inflate_init false
     | Deflate n -> Zlib.deflate_init n false
   in
-
-  (*
-  let o_buf = Bytes.create buf_size in
-  let o_off = ref 0 in
-  let o_len = ref 0 in
-  *)
   let flush_zlib ~flush (oc : Out.t) =
     let continue = ref true in
     while !continue do

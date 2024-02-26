@@ -22,13 +22,15 @@ let create ?(close = ignore) ~input () : t =
     method input = input
   end
 
-let empty : t =
+class empty : t =
   object
     method close () = ()
     method input _ _ _ = 0
   end
 
-let of_in_channel ?(close_noerr = false) (ic : in_channel) : t_seekable =
+let empty = new empty
+
+class of_in_channel ?(close_noerr = false) (ic : in_channel) : t_seekable =
   object
     method input buf i len = input ic buf i len
 
@@ -42,16 +44,21 @@ let of_in_channel ?(close_noerr = false) (ic : in_channel) : t_seekable =
     method pos () = pos_in ic
   end
 
-let open_file ?close_noerr ?(mode = 0o644)
-    ?(flags = [ Open_rdonly; Open_binary ]) filename : t_seekable =
+let[@inline] of_in_channel ?close_noerr ic = new of_in_channel ?close_noerr ic
+
+class open_file ?close_noerr ?(mode = 0o644)
+  ?(flags = [ Open_rdonly; Open_binary ]) filename : t_seekable =
   let ic = open_in_gen flags mode filename in
   of_in_channel ?close_noerr ic
+
+let[@inline] open_file ?close_noerr ?mode ?flags filename =
+  new open_file ?close_noerr ?mode ?flags filename
 
 let with_open_file ?close_noerr ?mode ?flags filename f =
   let ic = open_file ?close_noerr ?mode ?flags filename in
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
-let of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
+class of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
   (* i: current position in [b] *)
   let i = ref off in
 
@@ -79,8 +86,14 @@ let of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
       i := j + off
   end
 
-let of_string ?off ?len s : t_seekable =
-  of_bytes ?off ?len (Bytes.unsafe_of_string s)
+let[@inline] of_bytes ?off ?len b = new of_bytes ?off ?len b
+
+class of_string ?off ?len s : t_seekable =
+  object
+    inherit of_bytes ?off ?len (Bytes.unsafe_of_string s)
+  end
+
+let[@inline] of_string ?off ?len s = new of_string ?off ?len s
 
 (** Read into the given slice.
       @return the number of bytes read, [0] means end of input. *)
@@ -101,7 +114,7 @@ let really_input_string self n : string =
   really_input self buf 0 n;
   Bytes.unsafe_to_string buf
 
-let copy_into ?(buf = Bytes.create _default_buf_size) (ic : #t) (oc : Out.t) :
+let copy_into ?(buf = Bytes.create _default_buf_size) (ic : #t) (oc : #Out.t) :
     unit =
   let continue = ref true in
   while !continue do
@@ -113,35 +126,44 @@ let copy_into ?(buf = Bytes.create _default_buf_size) (ic : #t) (oc : Out.t) :
   done
 
 let concat (l0 : t list) : t =
-  let l = ref l0 in
-  let rec input b i len : int =
-    match !l with
+  let ics = ref l0 in
+  let rec input_rec b i len : int =
+    match !ics with
     | [] -> 0
     | ic :: tl ->
       let n = ic#input b i len in
       if n > 0 then
         n
       else (
-        l := tl;
-        input b i len
+        ics := tl;
+        input_rec b i len
       )
   in
-  let close () = List.iter close l0 in
-  create ~close ~input ()
+  object
+    method input bs i len = input_rec bs i len
+    method close () = List.iter close l0
+  end
 
-let map_char f (ic : #t) : t =
-  let close () = close ic in
-  let input b i len : int =
-    let n = ic#input b i len in
-    if n > 0 then
-      for j = i to i + n - 1 do
-        let c = Bytes.get b j in
-        (* safety: the index is valid because [get] above didn't raise. *)
-        Bytes.unsafe_set b j (f c)
-      done;
-    n
-  in
-  create ~close ~input ()
+class map_char f (ic : #t) : t =
+  object
+    method close () = close ic
+
+    method input b i len : int =
+      let n = ic#input b i len in
+      if n > 0 then
+        for j = i to i + n - 1 do
+          let c = Bytes.get b j in
+          (* safety: the index is valid because [get] above didn't raise. *)
+          Bytes.unsafe_set b j (f c)
+        done;
+      n
+  end
+
+let[@inline] map_char f ic = new map_char f ic
+
+let input_all_into_buffer self buf : unit =
+  let oc = Out.of_buffer buf in
+  copy_into self oc
 
 let input_all ?(buf = Bytes.create 128) (self : #t) : string =
   let buf = ref buf in

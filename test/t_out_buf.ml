@@ -1,5 +1,6 @@
 open Iostream
 open OUnit2
+module O = Out_buf
 
 let spf = Printf.sprintf
 
@@ -14,13 +15,13 @@ let rot13 c =
 let t1 =
   "map_char" >:: fun _ctx ->
   let buf = Buffer.create 32 in
-  let oc = Out.of_buffer buf |> Out.map_char rot13 in
-  Out.output_string oc "hello";
+  let oc = O.of_buffer buf |> O.map_char rot13 in
+  O.output_string oc "hello";
   assert_equal ~printer:(spf "%S") "uryyb" (Buffer.contents buf);
-  Out.output_string oc " world";
+  O.output_string oc " world";
   assert_equal ~printer:(spf "%S") "uryyb jbeyq" (Buffer.contents buf);
   Buffer.clear buf;
-  Out.output_string oc "!!";
+  O.output_string oc "!!";
   assert_equal ~printer:(spf "%S") "!!" (Buffer.contents buf);
   ()
 
@@ -28,9 +29,9 @@ let t2 =
   "with_out" >:: fun ctx ->
   let path, _oc = OUnit2.bracket_tmpfile ~prefix:"tout" ~suffix:"tmp" ctx in
   close_out_noerr _oc;
-  Out.with_open_file path (fun out ->
-      Out.output_string out "hello world";
-      Out.output_char out '!');
+  O.with_open_file path (fun out ->
+      O.output_string out "hello world";
+      O.output_char out '!');
   (* Printf.eprintf "done writing into %S\n%!" path; *)
   let content = In_buf.with_open_file path In_buf.input_all in
   assert_equal "hello world!" content

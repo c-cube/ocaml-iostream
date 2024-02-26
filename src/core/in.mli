@@ -24,11 +24,22 @@ class type t_seekable =
 val create :
   ?close:(unit -> unit) -> input:(bytes -> int -> int -> int) -> unit -> t
 
+class empty : t
+
 val empty : t
 (** Empty input, contains 0 bytes. *)
 
+class of_in_channel : ?close_noerr:bool -> in_channel -> t_seekable
+
 val of_in_channel : ?close_noerr:bool -> in_channel -> t_seekable
 (** Wrap a standard input channel. *)
+
+class open_file :
+  ?close_noerr:bool
+  -> ?mode:int
+  -> ?flags:open_flag list
+  -> string
+  -> t_seekable
 
 val open_file :
   ?close_noerr:bool ->
@@ -45,11 +56,15 @@ val with_open_file :
   (t_seekable -> 'a) ->
   'a
 
+class of_string : ?off:int -> ?len:int -> string -> t_seekable
+
 val of_string : ?off:int -> ?len:int -> string -> t_seekable
 (** An input channel reading from the string.
     @param offset initial offset in the string. Default [0].
     @param len the length of the slice we read from. Default [String.length s - off].
 *)
+
+class of_bytes : ?off:int -> ?len:int -> bytes -> t_seekable
 
 val of_bytes : ?off:int -> ?len:int -> bytes -> t_seekable
 (** An input channel reading from the bytes buffer. See {!of_string}
@@ -60,6 +75,10 @@ val input : #t -> bytes -> int -> int -> int
     the stream has reached its end.
     @raise Invalid_argument if the arguments do not denote a valid slice.
 *)
+
+val input_all_into_buffer : #t -> Buffer.t -> unit
+(** Read the whole content into the given buffer.
+    @since 0.2 *)
 
 val input_all : ?buf:bytes -> #t -> string
 (** [input_all ic] reads the whole content of [ic] into a string.
@@ -86,7 +105,7 @@ val concat : t list -> t
 val close : #t -> unit
 (** Close the input stream. This is idempotent. *)
 
-val copy_into : ?buf:bytes -> #t -> Out.t -> unit
+val copy_into : ?buf:bytes -> #t -> #Out.t -> unit
 (** Copy the whole stream into the given output. *)
 
 val map_char : (char -> char) -> #t -> t

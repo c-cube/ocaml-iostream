@@ -12,7 +12,7 @@ class type t =
 class virtual t_from_refill ?(buf = Slice.create _default_buf_size) () =
   object (self)
     val slice : Slice.t = buf
-    method virtual refill : Slice.t -> unit
+    method virtual private refill : Slice.t -> unit
     method close () = ()
 
     method fill_buf () : Slice.t =
@@ -54,7 +54,7 @@ let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
 let[@inline] input self b i len : int = self#input b i len
 let[@inline] close self = self#close ()
 
-let of_bytes ?(off = 0) ?len bytes : t =
+class of_bytes ?(off = 0) ?len bytes =
   let len =
     match len with
     | None -> Bytes.length bytes - off
@@ -66,37 +66,56 @@ let of_bytes ?(off = 0) ?len bytes : t =
 
   let buf = { bytes; off; len } in
 
-  (object
-     inherit t_from_refill ~buf ()
+  object
+    inherit t_from_refill ~buf ()
 
-     method refill buf =
-       (* nothing to refill *)
-       buf.off <- 0;
-       buf.len <- 0
-   end
-    :> t)
+    method private refill buf =
+      (* nothing to refill *)
+      buf.off <- 0;
+      buf.len <- 0
+  end
 
-let of_in ?(bytes = Bytes.create _default_buf_size) ic : t =
-  (object
-     inherit t_from_refill ~buf:(Slice.of_bytes bytes) ()
-     method! close () = In.close ic
+let[@inline] of_bytes ?off ?len bs = new of_bytes ?off ?len bs
 
-     method refill buf =
-       buf.off <- 0;
-       buf.len <- In.input ic buf.bytes 0 (Bytes.length buf.bytes)
-   end
-    :> t)
+class of_string ?off ?len s =
+  object
+    inherit of_bytes ?off ?len (Bytes.unsafe_of_string s)
+  end
 
-let of_in_channel ?bytes ic : t = of_in ?bytes (In.of_in_channel ic)
+let[@inline] of_string ?off ?len bs = new of_string ?off ?len bs
 
-let open_file ?bytes ?mode ?flags filename : t =
+class of_in ?(bytes = Bytes.create _default_buf_size) ic =
+  object
+    inherit t_from_refill ~buf:(Slice.of_bytes bytes) ()
+    method! close () = In.close ic
+
+    method private refill buf =
+      buf.off <- 0;
+      buf.len <- In.input ic buf.bytes 0 (Bytes.length buf.bytes)
+  end
+
+let[@inline] of_in ?bytes ic = new of_in ?bytes ic
+
+class of_in_channel ?bytes ic =
+  object
+    inherit of_in ?bytes (In.of_in_channel ic)
+  end
+
+let[@inline] of_in_channel ?bytes ic : t = new of_in_channel ?bytes ic
+
+class open_file ?bytes ?mode ?flags filename : t =
   of_in ?bytes (In.open_file ?mode ?flags filename)
+
+let[@inline] open_file ?bytes ?mode ?flags filename =
+  new open_file ?bytes ?mode ?flags filename
 
 let with_open_file ?bytes ?mode ?flags filename f =
   let ic = open_file ?bytes ?mode ?flags filename in
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
 let[@inline] into_in (self : #t) : In.t = (self :> In.t)
+let input_all_into_buffer = In.input_all_into_buffer
+let input_all = In.input_all
 
 let copy_into (self : #t) (oc : #Out.t) : unit =
   let continue = ref true in
@@ -109,15 +128,6 @@ let copy_into (self : #t) (oc : #Out.t) : unit =
       consume self buf.len
     )
   done
-
-let input_all_into_buffer self buf : unit =
-  let oc = Out.of_buffer buf in
-  copy_into self oc
-
-let input_all ?buffer:(buf = Buffer.create 32) self : string =
-  Buffer.clear buf;
-  input_all_into_buffer self buf;
-  Buffer.contents buf
 
 let input_line ?buffer (self : #t) : string option =
   (* see if we can directly extract a line from current buffer *)

@@ -25,7 +25,7 @@ class virtual t_from_refill :
   ?buf:Slice.t
   -> unit
   -> object
-       method virtual refill : Slice.t -> unit
+       method virtual private refill : Slice.t -> unit
        (** Implementation of the stream: this takes a slice,
         resets its offset, and fills it with bytes. It must write
         at least one byte in the slice, unless the underlying
@@ -42,13 +42,26 @@ val create :
     @param buf the underlying buffer
     @raise Invalid_argument if the buffer's length is not at least 16. *)
 
+class of_bytes : ?off:int -> ?len:int -> bytes -> t
+
 val of_bytes : ?off:int -> ?len:int -> bytes -> t
+
+class of_string : ?off:int -> ?len:int -> string -> t
+
+val of_string : ?off:int -> ?len:int -> string -> t
+
+(* val of_bytes : ?off:int -> ?len:int -> bytes -> t *)
 (** Read from the given buffer.
     @param off initial offset (default 0)
     @param len length of the slice in the bytes. (default all available bytes from offset) *)
 
+class of_in_channel : ?bytes:bytes -> in_channel -> t
+
 val of_in_channel : ?bytes:bytes -> in_channel -> t
 (** Wrap a standard input channel. *)
+
+class open_file :
+  ?bytes:bytes -> ?mode:int -> ?flags:open_flag list -> string -> t
 
 val open_file :
   ?bytes:bytes -> ?mode:int -> ?flags:open_flag list -> string -> t
@@ -83,15 +96,15 @@ val close : #t -> unit
 (** Close the input stream. *)
 
 val into_in : #t -> In.t
-(** Cast into a {!In.t}. Note that this does allocate a new record, so it's
-      advised to not perform this operation in a tight loop.
-      The function {!input} can be called directly on the buffered stream if needed. *)
+(** Cast into a {!In.t}. This doesn't allocate. *)
 
 val input_all_into_buffer : #t -> Buffer.t -> unit
 (** Read the whole content into the given buffer. *)
 
-val input_all : ?buffer:Buffer.t -> #t -> string
-(** Input all the content into a string *)
+val input_all : ?buf:bytes -> #t -> string
+(** [input_all ic] reads the whole content of [ic] into a string.
+    @param buf the initial buffer to use internally.
+    @since 0.2 *)
 
 val copy_into : #t -> #Out.t -> unit
 (** Copy the entire stream into the given output. *)

@@ -7,5 +7,6 @@
 module In = In
 module In_buf = In_buf
 module Out = Out
+module Out_buf = Out_buf
 module Slice = Slice
 module Seekable = Seekable

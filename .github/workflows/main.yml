@@ -19,7 +19,7 @@ jobs:
         ocaml-compiler:
             - '4.08'
             - '4.14'
-            - '5.0'
+            - '5.1'
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -29,6 +29,7 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           dune-cache: true
+          allow-prerelease-opam: true
 
       - run: opam install -t iostream --deps-only
       - run: opam exec -- dune build @install

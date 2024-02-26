@@ -15,8 +15,9 @@ jobs:
       - name: Use OCaml
         uses: ocaml/setup-ocaml@v2
         with:
-          ocaml-compiler: '4.14'
+          ocaml-compiler: '5.1'
           dune-cache: true
+          allow-prerelease-opam: true
 
       - name: Deps
         run: opam install odig iostream
@@ -29,5 +30,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./_doc/html/
-          destination_dir: dev
-          enable_jekyll: true
+          destination_dir: .
+          enable_jekyll: false

@@ -30,6 +30,7 @@
  (depends
    (ocaml (>= 4.08))
    (dune (>= 2.0))
+   (iostream (= :version))
    camlzip
    (ounit2 :with-test))
  (tags

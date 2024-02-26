@@ -35,6 +35,21 @@ class dummy : t
 val dummy : t
 (** Dummy output, drops everything written to it. *)
 
+(** Make a bufferized output from a non bufferized output+close *)
+class virtual t_from_output :
+  ?bytes:bytes
+  -> unit
+  -> object
+       inherit t
+
+       method virtual output_underlying : bytes -> int -> int -> unit
+       (** Emit these bytes, unbufferized *)
+
+       method virtual close_underlying : unit -> unit
+       (** Close the underlying output. The bufferized output will
+        flush and then call this. *)
+     end
+
 class bufferized : ?bytes:bytes -> Out.t -> t
 
 val bufferized : ?bytes:bytes -> Out.t -> t

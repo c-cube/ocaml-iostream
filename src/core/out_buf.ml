@@ -30,23 +30,24 @@ class dummy : t =
 let dummy = new dummy
 let _default_buf_size = 16 * 1024
 
-class bufferized ?bytes:(buf = Bytes.create _default_buf_size) (oc : #Out.t) =
+class virtual t_from_output ?bytes:(buf = Bytes.create _default_buf_size) () =
   let off = ref 0 in
-  let flush_ () =
-    if !off > 0 then (
-      oc#output buf 0 !off;
-      off := 0
-    )
-  in
-  let[@inline] flush_if_full_ () = if !off = Bytes.length buf then flush_ () in
-  object
-    method flush () = flush_ ()
+
+  object (self)
+    method virtual output_underlying : bytes -> int -> int -> unit
+    method virtual close_underlying : unit -> unit
+
+    method flush () =
+      if !off > 0 then (
+        self#output_underlying buf 0 !off;
+        off := 0
+      )
 
     method output bs i len : unit =
       let i = ref i in
       let len = ref len in
       while !len > 0 do
-        flush_if_full_ ();
+        if !off = Bytes.length buf then self#flush ();
         let n = min !len (Bytes.length buf - !off) in
         assert (n > 0);
 
@@ -55,20 +56,27 @@ class bufferized ?bytes:(buf = Bytes.create _default_buf_size) (oc : #Out.t) =
         len := !len - n;
         off := !off + n
       done;
-      flush_if_full_ ()
+      if !off = Bytes.length buf then self#flush ()
 
     method close () =
-      flush_ ();
-      oc#close ()
+      self#flush ();
+      self#close_underlying ()
 
     method output_char c : unit =
-      flush_if_full_ ();
+      if !off = Bytes.length buf then self#flush ();
       Bytes.set buf !off c;
       incr off;
-      flush_if_full_ ()
+      if !off = Bytes.length buf then self#flush ()
   end
 
-let bufferized ?bytes oc = new bufferized ?bytes oc
+class bufferized ?bytes (oc : #Out.t) =
+  object
+    inherit t_from_output ?bytes ()
+    method output_underlying bs i len = oc#output bs i len
+    method close_underlying () = oc#close ()
+  end
+
+let[@inline] bufferized ?bytes oc = new bufferized ?bytes oc
 
 (** [of_out_channel oc] wraps the channel into a {!Out_channel.t}.
       @param close_noerr if true, then closing the result uses [close_out_noerr]

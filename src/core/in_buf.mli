@@ -13,16 +13,12 @@ class type t =
     (** Consume [n] bytes from the inner buffer. This is only
         valid if the last call to [fill_buf] returned a slice with
         at least [n] bytes. *)
-
-    method input : bytes -> int -> int -> int
-    (** Default implementation of [input] using [fill_buf] *)
   end
 
-(** An implementation of [t] that relies on a {!Slice.t} as buffer,
-      along with a [refill] method to fill the buffer with data when
-      it's entirely consumed. *)
+(** A mixin to implement a buffered input by only providing
+    a [refill] method. Add a [close] method and it's good to go. *)
 class virtual t_from_refill :
-  ?buf:Slice.t
+  ?bytes:bytes
   -> unit
   -> object
        method virtual private refill : Slice.t -> unit
@@ -31,7 +27,9 @@ class virtual t_from_refill :
         at least one byte in the slice, unless the underlying
         input has reached its end. *)
 
-       inherit t
+       method input : bytes -> int -> int -> int
+       method fill_buf : unit -> Slice.t
+       method consume : int -> unit
      end
 
 val create :

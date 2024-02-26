@@ -6,14 +6,12 @@ class type t =
     inherit In.t
     method fill_buf : unit -> Slice.t
     method consume : int -> unit
-    method input : bytes -> int -> int -> int
   end
 
-class virtual t_from_refill ?(buf = Slice.create _default_buf_size) () =
+class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
+  let slice = Slice.of_bytes bytes in
   object (self)
-    val slice : Slice.t = buf
     method virtual private refill : Slice.t -> unit
-    method close () = ()
 
     method fill_buf () : Slice.t =
       if slice.len = 0 then self#refill slice;
@@ -40,10 +38,9 @@ let[@inline] fill_buf (self : #t) : Slice.t = self#fill_buf ()
 
 let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
     () : t =
-  let buf = Slice.of_bytes bytes in
   object
-    inherit t_from_refill ~buf ()
-    method! close () = close ()
+    inherit t_from_refill ~bytes ()
+    method close () = close ()
 
     method private refill buf : unit =
       buf.off <- 0;
@@ -54,12 +51,11 @@ let[@inline] input self b i len : int = self#input b i len
 let[@inline] close self = self#close ()
 
 class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
-  let buf = Slice.of_bytes bytes in
   let eof = ref false in
 
   object
-    inherit t_from_refill ~buf ()
-    method! close () = ic#close ()
+    inherit t_from_refill ~bytes ()
+    method close () = ic#close ()
 
     method private refill buf =
       if not !eof then (
@@ -71,7 +67,7 @@ class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
 
 let[@inline] bufferized ?bytes ic = new bufferized ?bytes ic
 
-class of_bytes ?(off = 0) ?len bytes =
+class of_bytes ?(off = 0) ?len bytes : t =
   let len =
     match len with
     | None -> Bytes.length bytes - off
@@ -81,15 +77,22 @@ class of_bytes ?(off = 0) ?len bytes =
       n
   in
 
-  let buf = { bytes; off; len } in
+  let slice = { bytes; off; len } in
 
   object
-    inherit t_from_refill ~buf ()
+    method close () = ()
+    method fill_buf () = slice
 
-    method private refill buf =
-      (* nothing to refill *)
-      buf.off <- 0;
-      buf.len <- 0
+    method input b i len : int =
+      if slice.len > 0 then (
+        let n = min len slice.len in
+        Bytes.blit slice.bytes slice.off b i n;
+        Slice.consume slice n;
+        n
+      ) else
+        0
+
+    method consume n = Slice.consume slice n
   end
 
 let[@inline] of_bytes ?off ?len bs = new of_bytes ?off ?len bs
@@ -101,10 +104,10 @@ class of_string ?off ?len s =
 
 let[@inline] of_string ?off ?len bs = new of_string ?off ?len bs
 
-class of_in ?(bytes = Bytes.create _default_buf_size) ic =
+class of_in ?bytes ic =
   object
-    inherit t_from_refill ~buf:(Slice.of_bytes bytes) ()
-    method! close () = In.close ic
+    inherit t_from_refill ?bytes ()
+    method close () = In.close ic
 
     method private refill buf =
       buf.off <- 0;
@@ -233,28 +236,28 @@ let to_seq (self : #t) : char Seq.t =
   in
   next
 
-let of_seq ?(bytes = Bytes.create _default_buf_size) seq : t =
+let of_seq ?bytes seq : t =
   let seq = ref seq in
-  (object
-     inherit t_from_refill ~buf:(Slice.of_bytes bytes) ()
+  object
+    inherit t_from_refill ?bytes ()
+    method close () = ()
 
-     method refill bs =
-       let rec loop idx =
-         if idx >= Bytes.length bs.bytes then
-           idx
-         else (
-           match !seq () with
-           | Seq.Nil -> idx
-           | Seq.Cons (c, seq_tl) ->
-             seq := seq_tl;
-             Bytes.set bs.bytes idx c;
-             loop (idx + 1)
-         )
-       in
-       bs.off <- 0;
-       bs.len <- loop 0
-   end
-    :> t)
+    method private refill bs =
+      let rec loop idx =
+        if idx >= Bytes.length bs.bytes then
+          idx
+        else (
+          match !seq () with
+          | Seq.Nil -> idx
+          | Seq.Cons (c, seq_tl) ->
+            seq := seq_tl;
+            Bytes.set bs.bytes idx c;
+            loop (idx + 1)
+        )
+      in
+      bs.off <- 0;
+      bs.len <- loop 0
+  end
 
 let skip (self : #t) (n : int) : unit =
   let n = ref n in

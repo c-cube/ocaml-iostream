@@ -5,7 +5,7 @@ let t_decompress_oc_of_compress_ic str =
   let ic = IO.In_buf.of_string str in
   let buf = Buffer.create 32 in
   let oc = IO.Out.of_buffer buf in
-  IO.In.copy_into (IOZ.compress_in ic) (IOZ.decompress_out oc);
+  IO.In.copy_into (IOZ.compress_in ic) (IOZ.decompressed_out oc);
   let str' = Buffer.contents buf in
   if str <> str' then ();
   ()
@@ -25,7 +25,7 @@ let t_decompress_oc_of_compress_oc str =
   let ic = IO.In_buf.of_string str in
   let buf = Buffer.create 32 in
   let oc = IO.Out.of_buffer buf in
-  IO.In.copy_into ic (IOZ.compress_out @@ IOZ.decompress_out oc);
+  IO.In.copy_into ic (IOZ.compressed_out @@ IOZ.decompressed_out oc);
   let str' = Buffer.contents buf in
   if str <> str' then ();
   ()

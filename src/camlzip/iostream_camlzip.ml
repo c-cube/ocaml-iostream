@@ -109,14 +109,14 @@ let compress_in_buf ?buf_size ?buf ?(level = _default_comp_level)
   end
 
 (* write output buffer to out *)
-let write_out (oc : Out.t) (slice : Slice.t) : unit =
+let write_out (oc : #Out.t) (slice : Slice.t) : unit =
   if slice.len > 0 then (
     Out.output oc slice.bytes slice.off slice.len;
     slice.off <- 0;
     slice.len <- 0
   )
 
-let transduce_out_ ?buf_size ?buf ~mode (oc : Out.t) : Out_buf.t =
+let transduce_out_ ?buf_size ?buf ~mode (oc : #Out.t) : Out_buf.t =
   let b1 = Bytes.create 1 in
   let bytes = get_buf ?buf_size ?buf () in
   let slice = Slice.of_bytes bytes in
@@ -125,7 +125,7 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : Out.t) : Out_buf.t =
     | Inflate -> Zlib.inflate_init false
     | Deflate n -> Zlib.deflate_init n false
   in
-  let flush_zlib ~flush (oc : Out.t) =
+  let flush_zlib ~flush (oc : #Out.t) =
     let continue = ref true in
     while !continue do
       let finished, used_in, used_out =
@@ -143,7 +143,7 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : Out.t) : Out_buf.t =
   in
 
   (* compress and consume input buffer *)
-  let write_zlib ~flush (oc : Out.t) buf i len =
+  let write_zlib ~flush (oc : #Out.t) buf i len =
     let i = ref i in
     let len = ref len in
     while !len > 0 do
@@ -178,8 +178,8 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : Out.t) : Out_buf.t =
     method flush () = flush_zlib ~flush:Zlib.Z_FULL_FLUSH oc
   end
 
-let compressed_out ?buf_size ?buf ?(level = _default_comp_level) oc : Out_buf.t
-    =
+let compressed_out ?buf_size ?buf ?(level = _default_comp_level) (oc : #Out.t) :
+    Out_buf.t =
   transduce_out_ ?buf_size ?buf ~mode:(Deflate level) oc
 
 let decompressed_out ?buf_size ?buf oc : Out_buf.t =

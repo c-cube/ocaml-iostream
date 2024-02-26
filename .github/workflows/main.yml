@@ -31,7 +31,7 @@ jobs:
           dune-cache: true
           allow-prerelease-opam: true
 
-      - run: opam install -t iostream --deps-only
+      - run: opam install -t iostream iostream-camlzip --deps-only
       - run: opam exec -- dune build @install
       - run: opam exec -- dune runtest
       - run: opam exec -- dune build @install @runtest

@@ -42,10 +42,10 @@ class virtual t_from_output :
   -> object
        inherit t
 
-       method virtual output_underlying : bytes -> int -> int -> unit
-       (** Emit these bytes, unbufferized *)
+       method virtual private output_underlying : bytes -> int -> int -> unit
+       (** Emit these private bytes, unbufferized *)
 
-       method virtual close_underlying : unit -> unit
+       method virtual private close_underlying : unit -> unit
        (** Close the underlying output. The bufferized output will
         flush and then call this. *)
      end

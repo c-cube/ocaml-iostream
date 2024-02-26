@@ -34,8 +34,8 @@ class virtual t_from_output ?bytes:(buf = Bytes.create _default_buf_size) () =
   let off = ref 0 in
 
   object (self)
-    method virtual output_underlying : bytes -> int -> int -> unit
-    method virtual close_underlying : unit -> unit
+    method virtual private output_underlying : bytes -> int -> int -> unit
+    method virtual private close_underlying : unit -> unit
 
     method flush () =
       if !off > 0 then (
@@ -72,8 +72,8 @@ class virtual t_from_output ?bytes:(buf = Bytes.create _default_buf_size) () =
 class bufferized ?bytes (oc : #Out.t) =
   object
     inherit t_from_output ?bytes ()
-    method output_underlying bs i len = oc#output bs i len
-    method close_underlying () = oc#close ()
+    method private output_underlying bs i len = oc#output bs i len
+    method private close_underlying () = oc#close ()
   end
 
 let[@inline] bufferized ?bytes oc = new bufferized ?bytes oc

@@ -113,6 +113,9 @@ val input_all : ?buf:bytes -> #t -> string
 val copy_into : #t -> #Out.t -> unit
 (** Copy the entire stream into the given output. *)
 
+val skip : #t -> int -> unit
+(** [skip ic n] reads and dicards the next [n] bytes in [ic]. *)
+
 val input_line : ?buffer:Buffer.t -> #t -> string option
 (** Read a line from the input. Return [None] if the stream is empty.
    @param buffer a buffer to use to hold the line. *)

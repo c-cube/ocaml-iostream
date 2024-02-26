@@ -255,3 +255,12 @@ let of_seq ?(bytes = Bytes.create _default_buf_size) seq : t =
        bs.len <- loop 0
    end
     :> t)
+
+let skip (self : #t) (n : int) : unit =
+  let n = ref n in
+  while !n > 0 do
+    let slice = fill_buf self in
+    let len = min !n slice.len in
+    Slice.consume slice len;
+    n := !n - len
+  done

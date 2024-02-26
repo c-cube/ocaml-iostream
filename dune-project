@@ -24,4 +24,15 @@
  (tags
   (topics io channels streams)))
 
+(package
+ (name iostream-camlzip)
+ (synopsis "Stream (de)compression using deflate")
+ (depends
+   (ocaml (>= 4.08))
+   (dune (>= 2.0))
+   camlzip
+   (ounit2 :with-test))
+ (tags
+  (topics io channels streams zip deflate)))
+
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project

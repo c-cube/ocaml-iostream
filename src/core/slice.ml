@@ -9,6 +9,8 @@ type t = {
     The valid bytes in the slice are [bytes[off], bytes[off+1], …, bytes[off+len-1]]
     (i.e [len] bytes starting at offset [off]). *)
 
+let empty : t = { bytes = Bytes.create 0; off = 0; len = 0 }
+
 let create size : t =
   let size = max 16 size in
   if size > Sys.max_string_length then

@@ -1,3 +1,4 @@
 (tests
  (names t_in t_out_buf t_in_buf)
+ (package iostream)
  (libraries iostream ounit2))

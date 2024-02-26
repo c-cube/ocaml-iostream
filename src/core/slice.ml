@@ -5,7 +5,9 @@ type t = {
   mutable off: int;  (** Offset in bytes *)
   mutable len: int;  (** Length of the slice. Empty slice has [len=0] *)
 }
-(** A slice of bytes. *)
+(** A slice of bytes.
+    The valid bytes in the slice are [bytes[off], bytes[off+1], …, bytes[off+len-1]]
+    (i.e [len] bytes starting at offset [off]). *)
 
 let create size : t =
   let size = max 16 size in

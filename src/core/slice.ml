@@ -1,7 +1,7 @@
-(** Byte slice *)
+(** Byte slice or buffer. *)
 
 type t = {
-  bytes: bytes;  (** Bytes *)
+  mutable bytes: bytes;  (** Bytes *)
   mutable off: int;  (** Offset in bytes *)
   mutable len: int;  (** Length of the slice. Empty slice has [len=0] *)
 }

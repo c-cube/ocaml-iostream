@@ -17,14 +17,14 @@ let create size : t =
     invalid_arg "Slice.create: size is too big";
   { bytes = Bytes.create size; off = 0; len = 0 }
 
-let of_bytes bs : t = { bytes = bs; off = 0; len = 0 }
+let[@inline] of_bytes bs : t = { bytes = bs; off = 0; len = 0 }
 let[@inline] bytes self = self.bytes
 let[@inline] off self = self.off
 let[@inline] len self = self.len
 
 (** Consume the first [n] bytes from the slice, making it [n] bytes
     shorter. This modifies the slice in place. *)
-let consume (self : t) n : unit =
+let[@inline] consume (self : t) n : unit =
   if n < 0 || n > self.len then invalid_arg "In_buf.consume_buf";
   self.off <- self.off + n;
   self.len <- self.len - n

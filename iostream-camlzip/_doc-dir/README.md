@@ -13,7 +13,7 @@ ecosystem can build on it.
 
 ## Documentation
 
-https://c-cube.github.io/ocaml-iostream/dev/iostream/index.html
+https://c-cube.github.io/ocaml-iostream/
 
 ## License
 

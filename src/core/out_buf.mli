@@ -35,6 +35,10 @@ class dummy : t
 val dummy : t
 (** Dummy output, drops everything written to it. *)
 
+class bufferized : ?bytes:bytes -> Out.t -> t
+
+val bufferized : ?bytes:bytes -> Out.t -> t
+
 class of_out_channel : ?close_noerr:bool -> out_channel -> t_seekable
 
 val of_out_channel : ?close_noerr:bool -> out_channel -> t_seekable

@@ -50,6 +50,10 @@ class of_string : ?off:int -> ?len:int -> string -> t
 
 val of_string : ?off:int -> ?len:int -> string -> t
 
+class bufferized : ?bytes:bytes -> In.t -> t
+
+val bufferized : ?bytes:bytes -> In.t -> t
+
 (* val of_bytes : ?off:int -> ?len:int -> bytes -> t *)
 (** Read from the given buffer.
     @param off initial offset (default 0)

@@ -41,18 +41,35 @@ let[@inline] fill_buf (self : #t) : Slice.t = self#fill_buf ()
 let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
     () : t =
   let buf = Slice.of_bytes bytes in
-  (object
-     inherit t_from_refill ~buf ()
-     method! close () = close ()
+  object
+    inherit t_from_refill ~buf ()
+    method! close () = close ()
 
-     method refill buf : unit =
-       buf.off <- 0;
-       buf.len <- refill buf.bytes
-   end
-    :> t)
+    method private refill buf : unit =
+      buf.off <- 0;
+      buf.len <- refill buf.bytes
+  end
 
 let[@inline] input self b i len : int = self#input b i len
 let[@inline] close self = self#close ()
+
+class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
+  let buf = Slice.of_bytes bytes in
+  let eof = ref false in
+
+  object
+    inherit t_from_refill ~buf ()
+    method! close () = ic#close ()
+
+    method private refill buf =
+      if not !eof then (
+        buf.off <- 0;
+        buf.len <- ic#input buf.bytes 0 (Bytes.length buf.bytes);
+        if buf.len = 0 then eof := true
+      )
+  end
+
+let[@inline] bufferized ?bytes ic = new bufferized ?bytes ic
 
 class of_bytes ?(off = 0) ?len bytes =
   let len =

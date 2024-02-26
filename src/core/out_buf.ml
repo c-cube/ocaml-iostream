@@ -28,6 +28,47 @@ class dummy : t =
   end
 
 let dummy = new dummy
+let _default_buf_size = 16 * 1024
+
+class bufferized ?bytes:(buf = Bytes.create _default_buf_size) (oc : #Out.t) =
+  let off = ref 0 in
+  let flush_ () =
+    if !off > 0 then (
+      oc#output buf 0 !off;
+      off := 0
+    )
+  in
+  let[@inline] flush_if_full_ () = if !off = Bytes.length buf then flush_ () in
+  object
+    method flush () = flush_ ()
+
+    method output bs i len : unit =
+      let i = ref i in
+      let len = ref len in
+      while !len > 0 do
+        flush_if_full_ ();
+        let n = min !len (Bytes.length buf - !off) in
+        assert (n > 0);
+
+        Bytes.blit bs !i buf !off n;
+        i := !i + n;
+        len := !len - n;
+        off := !off + n
+      done;
+      flush_if_full_ ()
+
+    method close () =
+      flush_ ();
+      oc#close ()
+
+    method output_char c : unit =
+      flush_if_full_ ();
+      Bytes.set buf !off c;
+      incr off;
+      flush_if_full_ ()
+  end
+
+let bufferized ?bytes oc = new bufferized ?bytes oc
 
 (** [of_out_channel oc] wraps the channel into a {!Out_channel.t}.
       @param close_noerr if true, then closing the result uses [close_out_noerr]

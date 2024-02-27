@@ -2,7 +2,7 @@
 
 (name iostream)
 (generate_opam_files true)
-(version 0.1)
+(version 0.2)
 
 (source
  (github c-cube/ocaml-iostream))

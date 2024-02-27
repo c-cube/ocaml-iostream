@@ -35,7 +35,9 @@ class dummy : t
 val dummy : t
 (** Dummy output, drops everything written to it. *)
 
-(** Make a bufferized output from a non bufferized output+close *)
+(** Make a bufferized output from a non bufferized output+close.
+ @param bytes the buffer to use. It's owned by this channel as long
+ as the channel exists. *)
 class virtual t_from_output :
   ?bytes:bytes
   -> unit
@@ -50,9 +52,9 @@ class virtual t_from_output :
         flush and then call this. *)
      end
 
-class bufferized : ?bytes:bytes -> Out.t -> t
+class bufferized : ?bytes:bytes -> #Out.t -> t
 
-val bufferized : ?bytes:bytes -> Out.t -> t
+val bufferized : ?bytes:bytes -> #Out.t -> t
 
 class of_out_channel : ?close_noerr:bool -> out_channel -> t_seekable
 

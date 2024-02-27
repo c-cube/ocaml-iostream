@@ -6,8 +6,10 @@ class type t =
     inherit In.t
 
     method fill_buf : unit -> Slice.t
-    (** returns a slice into the [bic]'s internal buffer,
-        and ensures it's empty only if [bic.ic] is empty. *)
+    (** [ic#fill_buf()] returns a slice into the [ic]'s internal buffer,
+        and ensures it's empty only if [ic.ic] is empty. In other
+        words, the invariant is that this only returns
+        an empty slice if the input stream is exhausted. *)
 
     method consume : int -> unit
     (** Consume [n] bytes from the inner buffer. This is only

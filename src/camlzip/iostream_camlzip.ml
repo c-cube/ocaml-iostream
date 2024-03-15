@@ -128,6 +128,7 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : #Out.t) : Out_buf.t =
   let flush_zlib ~flush (oc : #Out.t) =
     let continue = ref true in
     while !continue do
+      slice.off <- 0;
       let finished, used_in, used_out =
         (match mode with
         | Inflate -> Zlib.inflate
@@ -175,7 +176,7 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : #Out.t) : Out_buf.t =
       write_zlib ~flush:Zlib.Z_NO_FLUSH oc b1 0 1
 
     method output buf i len = write_zlib ~flush:Zlib.Z_NO_FLUSH oc buf i len
-    method flush () = flush_zlib ~flush:Zlib.Z_FULL_FLUSH oc
+    method flush () = flush_zlib ~flush:Zlib.Z_SYNC_FLUSH oc
   end
 
 let compressed_out ?buf_size ?buf ?(level = _default_comp_level) (oc : #Out.t) :

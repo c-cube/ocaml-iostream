@@ -23,7 +23,13 @@ val compressed_out :
     will write a compressed version of these bytes into [oc] (possibly
     after a flush). *)
 
+val compressed_out_buf :
+  ?buf_size:int -> ?buf:bytes -> ?level:int -> #Out_buf.t -> Out_buf.t
+
 val decompressed_out : ?buf_size:int -> ?buf:bytes -> #Out.t -> Out_buf.t
 (** [decompressed_out oc] is a new output stream [oc2]. Writing
     (compressed) bytes to [oc2] will write their decompressed version
     into [oc] (possibly after a flush) *)
+
+val decompressed_out_buf :
+  ?buf_size:int -> ?buf:bytes -> #Out_buf.t -> Out_buf.t

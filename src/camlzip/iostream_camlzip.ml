@@ -116,31 +116,40 @@ let write_out (oc : #Out.t) (slice : Slice.t) : unit =
     slice.len <- 0
   )
 
-let transduce_out_ ?buf_size ?buf ~mode (oc : #Out.t) : Out_buf.t =
+let transduce_out_ ?buf_size ?buf ~mode ~flush_out (oc : #Out.t) : Out_buf.t =
   let b1 = Bytes.create 1 in
-  let bytes = get_buf ?buf_size ?buf () in
-  let slice = Slice.of_bytes bytes in
+
+  (* output buffer *)
+  let slice_out =
+    let bytes = get_buf ?buf_size ?buf () in
+    Slice.of_bytes bytes
+  in
+
   let zlib_str =
     match mode with
     | Inflate -> Zlib.inflate_init false
     | Deflate n -> Zlib.deflate_init n false
   in
+
+  (* write nothing, but flush the internal state *)
   let flush_zlib ~flush (oc : #Out.t) =
     let continue = ref true in
     while !continue do
-      slice.off <- 0;
+      slice_out.off <- 0;
       let finished, used_in, used_out =
         (match mode with
         | Inflate -> Zlib.inflate
         | Deflate _ -> Zlib.deflate)
-          zlib_str Bytes.empty 0 0 slice.bytes 0 (Bytes.length slice.bytes)
+          zlib_str Bytes.empty 0 0 slice_out.bytes 0
+          (Bytes.length slice_out.bytes)
           flush
       in
       assert (used_in = 0);
-      slice.len <- used_out;
-      write_out oc slice;
+      slice_out.len <- used_out;
+      write_out oc slice_out;
       if finished then continue := false
-    done
+    done;
+    flush_out ()
   in
 
   (* compress and consume input buffer *)
@@ -148,27 +157,30 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : #Out.t) : Out_buf.t =
     let i = ref i in
     let len = ref len in
     while !len > 0 do
-      write_out oc slice;
+      write_out oc slice_out;
       let _finished, used_in, used_out =
         (match mode with
         | Inflate -> Zlib.inflate
         | Deflate _ -> Zlib.deflate)
-          zlib_str buf !i !len slice.bytes 0 (Bytes.length slice.bytes) flush
+          zlib_str buf !i !len slice_out.bytes 0
+          (Bytes.length slice_out.bytes)
+          flush
       in
       i := !i + used_in;
       len := !len - used_in;
-      slice.len <- slice.len + used_out
+      slice_out.len <- slice_out.len + used_out
     done;
-    write_out oc slice
+    write_out oc slice_out
   in
 
   object
     method close () =
       flush_zlib oc ~flush:Zlib.Z_FINISH;
-      assert (slice.len = 0);
+      assert (slice_out.len = 0);
       (match mode with
       | Inflate -> Zlib.inflate_end zlib_str
       | Deflate _ -> Zlib.deflate_end zlib_str);
+      flush_out ();
       Out.close oc
 
     method output_char c =
@@ -181,7 +193,16 @@ let transduce_out_ ?buf_size ?buf ~mode (oc : #Out.t) : Out_buf.t =
 
 let compressed_out ?buf_size ?buf ?(level = _default_comp_level) (oc : #Out.t) :
     Out_buf.t =
-  transduce_out_ ?buf_size ?buf ~mode:(Deflate level) oc
+  transduce_out_ ?buf_size ?buf ~flush_out:ignore ~mode:(Deflate level) oc
+
+let compressed_out_buf ?buf_size ?buf ?(level = _default_comp_level)
+    (oc : #Out_buf.t) : Out_buf.t =
+  let flush_out () = Out_buf.flush oc in
+  transduce_out_ ?buf_size ?buf ~flush_out ~mode:(Deflate level) (oc :> Out.t)
 
 let decompressed_out ?buf_size ?buf oc : Out_buf.t =
-  transduce_out_ ?buf_size ?buf ~mode:Inflate oc
+  transduce_out_ ?buf_size ?buf ~flush_out:ignore ~mode:Inflate oc
+
+let decompressed_out_buf ?buf_size ?buf (oc : #Out_buf.t) : Out_buf.t =
+  let flush_out () = Out_buf.flush oc in
+  transduce_out_ ?buf_size ?buf ~flush_out ~mode:Inflate (oc :> Out.t)

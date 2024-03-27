@@ -85,6 +85,7 @@ let () =
 
 let[@inline] consume (self : #t) n = self#consume n
 let[@inline] fill_buf (self : #t) : Slice.t = self#fill_buf ()
+let[@inline] fill_buf_with_timeout (self : #t_with_timeout) t : Slice.t = self#fill_buf_with_timeout t 
 
 let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
     () : t =

@@ -113,6 +113,11 @@ val fill_buf : #t -> Slice.t
 val input : #In.t -> bytes -> int -> int -> int
 (** Read into the given slice of bytes. *)
 
+val fill_buf_with_timeout : #t_with_timeout -> float -> Slice.t
+(** Get or refill the buffer from the given buffered input.
+    @raise Timeout.Timeout if the read didn't succeed in [t] seconds.
+    @since NEXT_RELEASE *)
+
 val input_with_timeout : #In.t_with_timeout -> float -> bytes -> int -> int -> int
 (** [input_with_timeout t buf i len] tries to read [len]  bytes into [buf]
     at offset [i]. It raises {!Timeout.Timeout} after [t] seconds without a read.

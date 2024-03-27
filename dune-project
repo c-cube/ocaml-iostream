@@ -20,6 +20,7 @@
    (dune (>= 2.0))
    (ounit2 :with-test))
  (depopts
+   atomic
    base-unix)
  (tags
   (topics io channels streams)))

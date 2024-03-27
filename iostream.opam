@@ -14,7 +14,7 @@ depends: [
   "dune" {>= "2.0"}
   "ounit2" {with-test}
 ]
-depopts: ["base-unix"]
+depopts: ["atomic" "base-unix"]
 build: [
   ["dune" "subst"] {pinned}
   [

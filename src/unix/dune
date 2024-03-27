@@ -4,4 +4,4 @@
   (public_name iostream.unix)
   (synopsis "Build iostreams from Unix types")
   (optional)
-  (libraries unix iostream))
+  (libraries unix atomic iostream))

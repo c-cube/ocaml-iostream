@@ -35,7 +35,8 @@ class virtual t_from_refill :
      end
 
 (** Input stream where [input] takes a timeout.
-    This is useful for network operations. *)
+    This is useful for network operations.
+    @since NEXT_RELEASE *)
 class type t_with_timeout =
   object
     inherit In.t_with_timeout
@@ -46,6 +47,8 @@ class type t_with_timeout =
         @raise Timeout.Timeout if no bytes were read in [t] seconds. *)
   end
 
+(** Helper to implement {!t_with_timeout}
+  @since NEXT_RELEASE *)
 class virtual t_with_timeout_from_refill :
   ?bytes:bytes
   -> unit
@@ -107,8 +110,16 @@ val fill_buf : #t -> Slice.t
       and ensures it's empty only if [bic.ic]
       is empty. *)
 
-val input : #t -> bytes -> int -> int -> int
+val input : #In.t -> bytes -> int -> int -> int
 (** Read into the given slice of bytes. *)
+
+val input_with_timeout : #In.t_with_timeout -> float -> bytes -> int -> int -> int
+(** [input_with_timeout t buf i len] tries to read [len]  bytes into [buf]
+    at offset [i]. It raises {!Timeout.Timeout} after [t] seconds without a read.
+    @raise Invalid_argument if the arguments do not denote a valid slice.
+    @raise Timeout.Timeout if the read didn't succeed in [t] seconds.
+    @since NEXT_RELEASE
+    *)
 
 val of_in : ?bytes:bytes -> #In.t -> t
 (** Make a buffered version of the input stream.

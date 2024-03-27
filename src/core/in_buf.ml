@@ -97,7 +97,8 @@ let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
       buf.len <- refill buf.bytes
   end
 
-let[@inline] input self b i len : int = self#input b i len
+let input = In.input
+let input_with_timeout = In.input_with_timeout
 let[@inline] close self = self#close ()
 
 class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =

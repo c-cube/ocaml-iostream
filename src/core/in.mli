@@ -22,7 +22,8 @@ class type t_seekable =
   end
 
 (** Input stream where [input] takes a timeout.
-    This is useful for network operations. *)
+    This is useful for network operations.
+    @since NEXT_RELEASE *)
 class type t_with_timeout =
   object
     inherit t
@@ -127,4 +128,5 @@ val input_with_timeout : #t_with_timeout -> float -> bytes -> int -> int -> int
     at offset [i]. It raises {!Timeout.Timeout} after [t] seconds without a read.
     @raise Invalid_argument if the arguments do not denote a valid slice.
     @raise Timeout.Timeout if the read didn't succeed in [t] seconds.
+    @since NEXT_RELEASE
     *)

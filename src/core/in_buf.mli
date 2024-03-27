@@ -34,6 +34,30 @@ class virtual t_from_refill :
        method consume : int -> unit
      end
 
+(** Input stream where [input] takes a timeout.
+    This is useful for network operations. *)
+class type t_with_timeout =
+  object
+    inherit In.t_with_timeout
+    inherit t
+
+    method fill_buf_with_timeout : float -> Slice.t
+    (** Like {!t}#fill_buf but with a timeout.
+        @raise Timeout.Timeout if no bytes were read in [t] seconds. *)
+  end
+
+class virtual t_with_timeout_from_refill :
+  ?bytes:bytes
+  -> unit
+  -> object
+       method virtual private refill_with_timeout : float -> Slice.t -> unit
+       method input : bytes -> int -> int -> int
+       method input_with_timeout : float -> bytes -> int -> int -> int
+       method fill_buf : unit -> Slice.t
+       method fill_buf_with_timeout : float -> Slice.t
+       method consume : int -> unit
+     end
+
 val create :
   ?bytes:bytes -> ?close:(unit -> unit) -> refill:(bytes -> int) -> unit -> t
 (** Create a new buffered input stream.

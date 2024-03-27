@@ -8,6 +8,22 @@ class type t =
     method consume : int -> unit
   end
 
+class virtual input_from_fill_buf =
+  object (self)
+    method virtual fill_buf : unit -> Slice.t
+
+    method input b i len : int =
+      let slice = self#fill_buf () in
+      if slice.len > 0 then (
+        let n = min len slice.len in
+        Bytes.blit slice.bytes slice.off b i n;
+        Slice.consume slice n;
+        n
+      ) else
+        0
+    (** Default implementation of [input] using [fill_buf] *)
+  end
+
 class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
   let slice = Slice.of_bytes bytes in
   object (self)
@@ -17,21 +33,55 @@ class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
       if slice.len = 0 then self#refill slice;
       slice
 
+    inherit input_from_fill_buf
+
+    method consume (n : int) : unit = Slice.consume slice n
+    (** Consume [n] bytes from the inner buffer. *)
+  end
+
+let () = ignore (fun (x : #t_from_refill) : t -> (x :> _))
+
+class type t_with_timeout =
+  object
+    inherit In.t_with_timeout
+    inherit t
+    method fill_buf_with_timeout : float -> Slice.t
+  end
+
+class virtual t_with_timeout_from_refill
+  ?(bytes = Bytes.create _default_buf_size) () =
+  let slice = Slice.of_bytes bytes in
+  object (self)
+    method virtual private refill_with_timeout : float -> Slice.t -> unit
+
+    method fill_buf_with_timeout t : Slice.t =
+      if slice.len = 0 then self#refill_with_timeout t slice;
+      slice
+
+    method fill_buf () : Slice.t =
+      while slice.len = 0 do
+        try self#refill_with_timeout 5. slice with Timeout.Timeout -> ()
+      done;
+      slice
+
     method consume (n : int) : unit = Slice.consume slice n
     (** Consume [n] bytes from the inner buffer. *)
 
-    method input b i len : int =
-      let buf = self#fill_buf () in
-
-      if buf.len > 0 then (
-        let n = min len buf.len in
-        Bytes.blit buf.bytes buf.off b i n;
-        Slice.consume buf n;
+    method input_with_timeout t b i len : int =
+      let slice = self#fill_buf_with_timeout t in
+      if slice.len > 0 then (
+        let n = min len slice.len in
+        Bytes.blit slice.bytes slice.off b i n;
+        Slice.consume slice n;
         n
       ) else
         0
-    (** Default implementation of [input] using [fill_buf] *)
+
+    inherit input_from_fill_buf
   end
+
+let () =
+  ignore (fun (x : #t_with_timeout_from_refill) : t_with_timeout -> (x :> _))
 
 let[@inline] consume (self : #t) n = self#consume n
 let[@inline] fill_buf (self : #t) : Slice.t = self#fill_buf ()

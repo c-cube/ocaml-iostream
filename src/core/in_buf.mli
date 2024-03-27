@@ -69,13 +69,13 @@ val create :
     @param buf the underlying buffer
     @raise Invalid_argument if the buffer's length is not at least 16. *)
 
-class of_bytes : ?off:int -> ?len:int -> bytes -> t
+class of_bytes : ?off:int -> ?len:int -> bytes -> t_with_timeout
 
-val of_bytes : ?off:int -> ?len:int -> bytes -> t
+val of_bytes : ?off:int -> ?len:int -> bytes -> t_with_timeout
 
-class of_string : ?off:int -> ?len:int -> string -> t
+class of_string : ?off:int -> ?len:int -> string -> t_with_timeout
 
-val of_string : ?off:int -> ?len:int -> string -> t
+val of_string : ?off:int -> ?len:int -> string -> t_with_timeout
 
 class bufferized : ?bytes:bytes -> In.t -> t
 

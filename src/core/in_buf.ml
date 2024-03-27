@@ -119,7 +119,7 @@ class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
 
 let[@inline] bufferized ?bytes ic = new bufferized ?bytes ic
 
-class of_bytes ?(off = 0) ?len bytes : t =
+class of_bytes ?(off = 0) ?len bytes : t_with_timeout =
   let len =
     match len with
     | None -> Bytes.length bytes - off
@@ -131,11 +131,7 @@ class of_bytes ?(off = 0) ?len bytes : t =
 
   let slice = { bytes; off; len } in
 
-  object
-    method close () = ()
-    method fill_buf () = slice
-
-    method input b i len : int =
+  let input  b i len =
       if slice.len > 0 then (
         let n = min len slice.len in
         Bytes.blit slice.bytes slice.off b i n;
@@ -143,13 +139,20 @@ class of_bytes ?(off = 0) ?len bytes : t =
         n
       ) else
         0
+  in
 
+  object
+    method close () = ()
+    method fill_buf () = slice
+    method fill_buf_with_timeout _t = slice
+    method input = input
+    method input_with_timeout _t b i len = input b i len
     method consume n = Slice.consume slice n
   end
 
 let[@inline] of_bytes ?off ?len bs = new of_bytes ?off ?len bs
 
-class of_string ?off ?len s =
+class of_string ?off ?len s : t_with_timeout =
   object
     inherit of_bytes ?off ?len (Bytes.unsafe_of_string s)
   end

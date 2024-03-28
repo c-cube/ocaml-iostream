@@ -124,7 +124,7 @@ val map_char : (char -> char) -> #t -> t
 (** Transform the stream byte by byte *)
 
 val input_with_timeout : #t_with_timeout -> float -> bytes -> int -> int -> int
-(** [input_with_timeout t buf i len] tries to read [len]  bytes into [buf]
+(** [input_with_timeout t buf i len] tries to read [len] bytes into [buf]
     at offset [i]. It raises {!Timeout.Timeout} after [t] seconds without a read.
     @raise Invalid_argument if the arguments do not denote a valid slice.
     @raise Timeout.Timeout if the read didn't succeed in [t] seconds.

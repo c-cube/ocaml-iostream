@@ -146,10 +146,8 @@ let transduce_out_ ?buf_size ?buf ~mode ~flush_out (oc : #Out.t) : Out_buf.t =
       in
       assert (used_in = 0);
       slice_out.len <- used_out;
-      if finished || used_out = 0 then
-        continue := false
-      else
-        write_out oc slice_out
+      write_out oc slice_out;
+      if finished || used_out = 0 then continue := false
     done;
     flush_out ()
   in

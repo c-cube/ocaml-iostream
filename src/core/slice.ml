@@ -31,8 +31,17 @@ let[@inline] consume (self : t) n : unit =
 
 (** find index of [c] in slice, or raise [Not_found] *)
 let find_index_exn (self : t) c : int =
-  let j = Bytes.index_from self.bytes self.off c in
-  if j < self.off + self.len then
-    j
+  let found = ref false in
+  let i = ref self.off in
+  let limit = self.off + self.len in
+  while (not !found) && !i < limit do
+    let c' = Bytes.unsafe_get self.bytes !i in
+    if c = c' then
+      found := true
+    else
+      incr i
+  done;
+  if !found then
+    !i
   else
     raise Not_found

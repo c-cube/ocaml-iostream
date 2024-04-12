@@ -10,3 +10,5 @@ module Out = Out
 module Out_buf = Out_buf
 module Slice = Slice
 module Seekable = Seekable
+
+exception Timeout = Timeout.Timeout

@@ -11,7 +11,7 @@ open struct
       let size = Option.value ~default:default_buf_size buf_size in
       Bytes.create size
 
-  type decompress_state =
+  type transduce_state =
     | In_progress
     | Consuming_rest
     | Done
@@ -21,92 +21,140 @@ type mode =
   | Inflate
   | Deflate of int
 
-class transduce_in_ ~mode (ic : #In_buf.t) : In.t =
-  let zlib_str =
-    match mode with
-    | Inflate -> Zlib.inflate_init false
-    | Deflate lvl -> Zlib.deflate_init lvl false
-  in
-  let state = ref In_progress in
-  object
-    method close () =
-      (match mode with
-      | Inflate -> Zlib.inflate_end zlib_str
-      | Deflate _ -> Zlib.deflate_end zlib_str);
-      In.close ic
+module In_trans = struct
+  type t =
+    | St : {
+        ic: 'ic;
+        mode: mode;
+        mutable state: transduce_state;
+        zlib_str: Zlib.stream;
+        close: 'ic -> unit;
+        fill_buf: deadline:float option -> 'ic -> Slice.t;
+      }
+        -> t
 
-    method input buf i len =
-      let n_written = ref 0 in
+  let of_in ~mode (ic : #In_buf.t) : t =
+    let zlib_str =
+      match mode with
+      | Inflate -> Zlib.inflate_init false
+      | Deflate lvl -> Zlib.deflate_init lvl false
+    in
+    St
+      {
+        state = In_progress;
+        mode;
+        zlib_str;
+        ic;
+        close = In_buf.close;
+        fill_buf =
+          (fun ~deadline ic ->
+            assert (deadline = None);
+            In_buf.fill_buf ic);
+      }
 
-      while !n_written = 0 && !state != Done do
-        match !state with
-        | Done -> assert false
-        | In_progress ->
-          let islice = In_buf.fill_buf ic in
-          if islice.len = 0 then
-            state := Consuming_rest
-          else (
-            let finished, used_in, used_out =
-              (match mode with
-              | Inflate -> Zlib.inflate
-              | Deflate _ -> Zlib.deflate)
-                zlib_str islice.bytes islice.off islice.len buf i len
-                Zlib.Z_NO_FLUSH
-            in
-            if finished then state := Done;
-            In_buf.consume ic used_in;
-            n_written := used_out
-          )
-        | Consuming_rest ->
-          (* finish sending the internal state *)
-          let islice = Slice.empty in
+  let close (St self) =
+    (match self.mode with
+    | Inflate -> Zlib.inflate_end self.zlib_str
+    | Deflate _ -> Zlib.deflate_end self.zlib_str);
+    self.close self.ic
+
+  let input ~deadline (St self) buf i len : int =
+    let n_written = ref 0 in
+
+    while !n_written = 0 && self.state != Done do
+      match self.state with
+      | Done -> assert false
+      | In_progress ->
+        let islice = self.fill_buf ~deadline self.ic in
+        if islice.len = 0 then
+          self.state <- Consuming_rest
+        else (
           let finished, used_in, used_out =
-            (match mode with
+            (match self.mode with
             | Inflate -> Zlib.inflate
             | Deflate _ -> Zlib.deflate)
-              zlib_str islice.bytes islice.off islice.len buf i len
-              Zlib.Z_FINISH
+              self.zlib_str islice.bytes islice.off islice.len buf i len
+              Zlib.Z_NO_FLUSH
           in
-          assert (used_in = 0);
-          if finished then state := Done;
+          if finished then self.state <- Done;
+          Slice.consume islice used_in;
           n_written := used_out
-      done;
-      !n_written
+        )
+      | Consuming_rest ->
+        (* finish sending the internal state *)
+        let islice = Slice.empty in
+        let finished, used_in, used_out =
+          (match self.mode with
+          | Inflate -> Zlib.inflate
+          | Deflate _ -> Zlib.deflate)
+            self.zlib_str islice.bytes islice.off islice.len buf i len
+            Zlib.Z_FINISH
+        in
+        assert (used_in = 0);
+        if finished then self.state <- Done;
+        n_written := used_out
+    done;
+    !n_written
+end
+
+class trans_in_ ~mode (ic : #In_buf.t) : In.t =
+  let st = In_trans.of_in ~mode ic in
+  object
+    method close () = In_trans.close st
+    method input buf i len = In_trans.input ~deadline:None st buf i len
   end
 
-let[@inline] decompress_in (ic : #In_buf.t) : In.t =
-  new transduce_in_ ~mode:Inflate ic
+let decompress_in (ic : #In_buf.t) : In.t = new trans_in_ ~mode:Inflate ic
 
-let[@inline] compress_in ?(level = _default_comp_level) (ic : #In_buf.t) : In.t
-    =
-  new transduce_in_ ~mode:(Deflate level) ic
+let compress_in ?(level = _default_comp_level) (ic : #In_buf.t) : In.t =
+  new trans_in_ ~mode:(Deflate level) ic
 
-let decompress_in_buf ?buf_size ?buf (ic : #In_buf.t) : In_buf.t =
+class trans_in_buf_ ?buf_size ?buf ~mode (ic : #In_buf.t) : In_buf.t =
   let bytes = get_buf ?buf_size ?buf () in
+  let st = In_trans.of_in ~mode ic in
   object
-    (* use [transduce_in_] but hide its [input] method *)
-    inherit transduce_in_ ~mode:Inflate ic as underlying
-
     (* use regular bufferized [input] *)
-    inherit! In_buf.t_from_refill ~bytes ()
+    inherit In_buf.t_from_refill ~bytes ()
 
     method private refill (slice : Slice.t) =
-      slice.len <- underlying#input slice.bytes 0 (Bytes.length slice.bytes)
+      slice.len <-
+        In_trans.input ~deadline:None st slice.bytes 0
+          (Bytes.length slice.bytes)
+
+    method close () = In_trans.close st
   end
+
+let decompress_in_buf ?buf_size ?buf (ic : #In_buf.t) : In_buf.t =
+  new trans_in_buf_ ?buf_size ?buf ~mode:Inflate ic
 
 let compress_in_buf ?buf_size ?buf ?(level = _default_comp_level)
     (ic : #In_buf.t) : In_buf.t =
+  new trans_in_buf_ ?buf_size ?buf ~mode:(Deflate level) ic
+
+class trans_in_buf_timeout_ ?buf_size ?buf ~now_s ~mode
+  (ic : #In_buf.t_with_timeout) : In_buf.t_with_timeout =
   let bytes = get_buf ?buf_size ?buf () in
+  let st = In_trans.of_in ~mode ic in
   object
-    (* use [transduce_in_] but hide its [input] method *)
-    inherit transduce_in_ ~mode:(Deflate level) ic as underlying
-
     (* use regular bufferized [input] *)
-    inherit! In_buf.t_from_refill ~bytes ()
+    inherit In_buf.t_with_timeout_from_refill ~bytes ()
 
-    method private refill (slice : Slice.t) =
-      slice.len <- underlying#input slice.bytes 0 (Bytes.length slice.bytes)
+    method private refill_with_timeout t (slice : Slice.t) =
+      let deadline = now_s () +. t in
+      slice.len <-
+        In_trans.input ~deadline:(Some deadline) st slice.bytes 0
+          (Bytes.length slice.bytes)
+
+    method close () = In_trans.close st
   end
+
+let decompress_in_buf_with_timeout ?buf_size ?buf ~now_s
+    (ic : #In_buf.t_with_timeout) : In_buf.t_with_timeout =
+  new trans_in_buf_timeout_ ?buf_size ?buf ~now_s ~mode:Inflate ic
+
+let compress_in_buf_with_timeout ?buf_size ?buf ?(level = _default_comp_level)
+    ~now_s (ic : #In_buf.t_with_timeout) : In_buf.t_with_timeout =
+  new trans_in_buf_timeout_ ?buf_size ?buf ~mode:(Deflate level) ~now_s ic
 
 (* write output buffer to out *)
 let write_out (oc : #Out.t) (slice : Slice.t) : unit =

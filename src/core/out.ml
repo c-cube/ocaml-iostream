@@ -1,14 +1,5 @@
-class type t =
-  object
-    method output : bytes -> int -> int -> unit
-    method close : unit -> unit
-  end
-
-class type t_seekable =
-  object
-    inherit t
-    inherit Seekable.t
-  end
+class type t = Iostream_types.Out.t
+class type t_seekable = Iostream_types.Out.t_seekable
 
 class dummy : t =
   object

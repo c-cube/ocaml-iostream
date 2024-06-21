@@ -1,20 +1,10 @@
 open Common_
 
-class type t =
-  object
-    method input : bytes -> int -> int -> int
-    (** Read into the slice. Returns [0] only if the
-        stream is closed. *)
+class type t = Iostream_types.In.t
+(** @inline *)
 
-    method close : unit -> unit
-    (** Close the input. Must be idempotent. *)
-  end
-
-class type t_seekable =
-  object
-    inherit t
-    inherit Seekable.t
-  end
+class type t_seekable = Iostream_types.In.t_seekable
+(** @inline *)
 
 let create ?(close = ignore) ~input () : t =
   object
@@ -47,7 +37,8 @@ class of_in_channel ?(close_noerr = false) (ic : in_channel) : t_seekable =
 let[@inline] of_in_channel ?close_noerr ic = new of_in_channel ?close_noerr ic
 
 class open_file ?close_noerr ?(mode = 0o644)
-  ?(flags = [ Open_rdonly; Open_binary ]) filename : t_seekable =
+  ?(flags = [ Open_rdonly; Open_binary ]) filename :
+  t_seekable =
   let ic = open_in_gen flags mode filename in
   of_in_channel ?close_noerr ic
 

@@ -1,16 +1,5 @@
-class type t =
-  object
-    method output_char : char -> unit
-    method output : bytes -> int -> int -> unit
-    method flush : unit -> unit
-    method close : unit -> unit
-  end
-
-class type t_seekable =
-  object
-    inherit t
-    inherit Seekable.t
-  end
+class type t = Iostream_types.Out_buf.t
+class type t_seekable = Iostream_types.Out_buf.t_seekable
 
 let create ?(flush = ignore) ?(close = ignore) ~output_char ~output () : t =
   object

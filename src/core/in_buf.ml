@@ -1,12 +1,7 @@
 open Slice
 open Common_
 
-class type t =
-  object
-    inherit In.t
-    method fill_buf : unit -> Slice.t
-    method consume : int -> unit
-  end
+class type t = Iostream_types.In_buf.t
 
 class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
   let slice = Slice.of_bytes bytes in

@@ -1,0 +1,4 @@
+(library
+ (name iostream_types)
+ (synopsis "Type definitions for iostreams")
+ (public_name iostream.types))

@@ -3,6 +3,22 @@ open Common_
 
 class type t = Iostream_types.In_buf.t
 
+class virtual input_from_fill_buf =
+  object (self)
+    method virtual fill_buf : unit -> Slice.t
+
+    method input b i len : int =
+      let slice = self#fill_buf () in
+      if slice.len > 0 then (
+        let n = min len slice.len in
+        Bytes.blit slice.bytes slice.off b i n;
+        Slice.consume slice n;
+        n
+      ) else
+        0
+    (** Default implementation of [input] using [fill_buf] *)
+  end
+
 class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
   let slice = Slice.of_bytes bytes in
   object (self)
@@ -12,24 +28,59 @@ class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
       if slice.len = 0 then self#refill slice;
       slice
 
+    inherit input_from_fill_buf
+
+    method consume (n : int) : unit = Slice.consume slice n
+    (** Consume [n] bytes from the inner buffer. *)
+  end
+
+let () = ignore (fun (x : #t_from_refill) : t -> (x :> _))
+
+class type t_with_timeout =
+  object
+    inherit In.t_with_timeout
+    inherit t
+    method fill_buf_with_timeout : float -> Slice.t
+  end
+
+class virtual t_with_timeout_from_refill
+  ?(bytes = Bytes.create _default_buf_size) () =
+  let slice = Slice.of_bytes bytes in
+  object (self)
+    method virtual private refill_with_timeout : float -> Slice.t -> unit
+
+    method fill_buf_with_timeout t : Slice.t =
+      if slice.len = 0 then self#refill_with_timeout t slice;
+      slice
+
+    method fill_buf () : Slice.t =
+      while slice.len = 0 do
+        try self#refill_with_timeout 5. slice with Timeout.Timeout -> ()
+      done;
+      slice
+
     method consume (n : int) : unit = Slice.consume slice n
     (** Consume [n] bytes from the inner buffer. *)
 
-    method input b i len : int =
-      let buf = self#fill_buf () in
-
-      if buf.len > 0 then (
-        let n = min len buf.len in
-        Bytes.blit buf.bytes buf.off b i n;
-        Slice.consume buf n;
+    method input_with_timeout t b i len : int =
+      let slice = self#fill_buf_with_timeout t in
+      if slice.len > 0 then (
+        let n = min len slice.len in
+        Bytes.blit slice.bytes slice.off b i n;
+        Slice.consume slice n;
         n
       ) else
         0
-    (** Default implementation of [input] using [fill_buf] *)
+
+    inherit input_from_fill_buf
   end
+
+let () =
+  ignore (fun (x : #t_with_timeout_from_refill) : t_with_timeout -> (x :> _))
 
 let[@inline] consume (self : #t) n = self#consume n
 let[@inline] fill_buf (self : #t) : Slice.t = self#fill_buf ()
+let[@inline] fill_buf_with_timeout (self : #t_with_timeout) t : Slice.t = self#fill_buf_with_timeout t 
 
 let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
     () : t =
@@ -42,7 +93,8 @@ let create ?(bytes = Bytes.create _default_buf_size) ?(close = ignore) ~refill
       buf.len <- refill buf.bytes
   end
 
-let[@inline] input self b i len : int = self#input b i len
+let input = In.input
+let input_with_timeout = In.input_with_timeout
 let[@inline] close self = self#close ()
 
 class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
@@ -62,7 +114,7 @@ class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
 
 let[@inline] bufferized ?bytes ic = new bufferized ?bytes ic
 
-class of_bytes ?(off = 0) ?len bytes : t =
+class of_bytes ?(off = 0) ?len bytes : t_with_timeout =
   let len =
     match len with
     | None -> Bytes.length bytes - off
@@ -74,11 +126,7 @@ class of_bytes ?(off = 0) ?len bytes : t =
 
   let slice = { bytes; off; len } in
 
-  object
-    method close () = ()
-    method fill_buf () = slice
-
-    method input b i len : int =
+  let input  b i len =
       if slice.len > 0 then (
         let n = min len slice.len in
         Bytes.blit slice.bytes slice.off b i n;
@@ -86,13 +134,20 @@ class of_bytes ?(off = 0) ?len bytes : t =
         n
       ) else
         0
+  in
 
+  object
+    method close () = ()
+    method fill_buf () = slice
+    method fill_buf_with_timeout _t = slice
+    method input = input
+    method input_with_timeout _t b i len = input b i len
     method consume n = Slice.consume slice n
   end
 
 let[@inline] of_bytes ?off ?len bs = new of_bytes ?off ?len bs
 
-class of_string ?off ?len s =
+class of_string ?off ?len s : t_with_timeout =
   object
     inherit of_bytes ?off ?len (Bytes.unsafe_of_string s)
   end

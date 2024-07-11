@@ -6,6 +6,12 @@ class type t = Iostream_types.In.t
 class type t_seekable = Iostream_types.In.t_seekable
 (** @inline *)
 
+class type t_with_timeout =
+  object
+    inherit t
+    method input_with_timeout : float -> bytes -> int -> int -> int
+  end
+
 let create ?(close = ignore) ~input () : t =
   object
     method close = close
@@ -186,3 +192,6 @@ let input_all ?(buf = Bytes.create 128) (self : #t) : string =
     Bytes.unsafe_to_string !buf
   else
     Bytes.sub_string !buf 0 !i
+
+let[@inline] input_with_timeout (self : #t_with_timeout) t buf i len =
+  self#input_with_timeout t buf i len

@@ -1,5 +1,4 @@
-
 (tests
-  (names t1)
-  (package iostream-camlzip)
-  (libraries iostream iostream-camlzip))
+ (names t1)
+ (package iostream-camlzip)
+ (libraries iostream iostream-camlzip))

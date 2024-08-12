@@ -2,20 +2,18 @@
 
 (** An output stream, ie. a place into which we can write bytes.
     This can be a [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
-class type t =
-  object
-    method output : bytes -> int -> int -> unit
-    (** Output slice *)
+class type t = object
+  method output : bytes -> int -> int -> unit
+  (** Output slice *)
 
-    method close : unit -> unit
-    (** Close the output. Must be idempotent. *)
-  end
+  method close : unit -> unit
+  (** Close the output. Must be idempotent. *)
+end
 
-class type t_seekable =
-  object
-    inherit t
-    inherit Seekable.t
-  end
+class type t_seekable = object
+  inherit t
+  inherit Seekable.t
+end
 
 class dummy : t
 

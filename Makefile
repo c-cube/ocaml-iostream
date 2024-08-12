@@ -12,6 +12,14 @@ test:
 doc:
 	@dune build $(DUNE_OPTS) @doc
 
+format:
+	@dune build $(DUNE_OPTS) @fmt --auto-promote
+	@dune format-dune-file dune-project > dune-project.fmt && mv dune-project.fmt dune-project
+
+check-format:
+	@dune build $(DUNE_OPTS) @fmt
+	@dune format-dune-file dune-project > dune-project.fmt && diff dune-project dune-project.fmt && rm dune-project.fmt
+
 WATCH?= @check @runtest
 watch:
 	dune build $(DUNE_OPTS) -w $(WATCH)

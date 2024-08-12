@@ -1,38 +1,34 @@
 (** Buffered input stream. *)
 
 (** The implementation of buffered input streams. *)
-class type t =
-  object
-    inherit In.t
+class type t = object
+  inherit In.t
 
-    method fill_buf : unit -> Slice.t
-    (** [ic#fill_buf()] returns a slice into the [ic]'s internal buffer,
+  method fill_buf : unit -> Slice.t
+  (** [ic#fill_buf()] returns a slice into the [ic]'s internal buffer,
         and ensures it's empty only if [ic.ic] is empty. In other
         words, the invariant is that this only returns
         an empty slice if the input stream is exhausted. *)
 
-    method consume : int -> unit
-    (** Consume [n] bytes from the inner buffer. This is only
+  method consume : int -> unit
+  (** Consume [n] bytes from the inner buffer. This is only
         valid if the last call to [fill_buf] returned a slice with
         at least [n] bytes. *)
-  end
+end
 
 (** A mixin to implement a buffered input by only providing
     a [refill] method. Add a [close] method and it's good to go. *)
-class virtual t_from_refill :
-  ?bytes:bytes
-  -> unit
-  -> object
-       method virtual private refill : Slice.t -> unit
-       (** Implementation of the stream: this takes a slice,
+class virtual t_from_refill : ?bytes:bytes -> unit -> object
+  method virtual private refill : Slice.t -> unit
+  (** Implementation of the stream: this takes a slice,
         resets its offset, and fills it with bytes. It must write
         at least one byte in the slice, unless the underlying
         input has reached its end. *)
 
-       method input : bytes -> int -> int -> int
-       method fill_buf : unit -> Slice.t
-       method consume : int -> unit
-     end
+  method input : bytes -> int -> int -> int
+  method fill_buf : unit -> Slice.t
+  method consume : int -> unit
+end
 
 val create :
   ?bytes:bytes -> ?close:(unit -> unit) -> refill:(bytes -> int) -> unit -> t
@@ -65,7 +61,11 @@ val of_in_channel : ?bytes:bytes -> in_channel -> t
 (** Wrap a standard input channel. *)
 
 class open_file :
-  ?bytes:bytes -> ?mode:int -> ?flags:open_flag list -> string -> t
+  ?bytes:bytes ->
+  ?mode:int ->
+  ?flags:open_flag list ->
+  string ->
+  t
 
 val open_file :
   ?bytes:bytes -> ?mode:int -> ?flags:open_flag list -> string -> t

@@ -1,7 +1,6 @@
-
 (library
-  (name iostream_unix)
-  (public_name iostream.unix)
-  (synopsis "Build iostreams from Unix types")
-  (optional)
-  (libraries unix iostream))
+ (name iostream_unix)
+ (public_name iostream.unix)
+ (synopsis "Build iostreams from Unix types")
+ (optional)
+ (libraries unix iostream))

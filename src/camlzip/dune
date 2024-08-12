@@ -1,6 +1,5 @@
-
 (library
-  (name iostream_camlzip)
-  (synopsis "Streaming (de)compression using deflate")
-  (public_name iostream-camlzip)
-  (libraries iostream camlzip))
+ (name iostream_camlzip)
+ (synopsis "Streaming (de)compression using deflate")
+ (public_name iostream-camlzip)
+ (libraries iostream camlzip))

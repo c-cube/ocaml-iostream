@@ -4,22 +4,20 @@
     with a buffer to amortize the cost of operations.
 
     This can be a [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
-class type t =
-  object
-    inherit Out.t
+class type t = object
+  inherit Out.t
 
-    method output_char : char -> unit
-    (** Output a single char *)
+  method output_char : char -> unit
+  (** Output a single char *)
 
-    method flush : unit -> unit
-    (** Flush underlying buffer *)
-  end
+  method flush : unit -> unit
+  (** Flush underlying buffer *)
+end
 
-class type t_seekable =
-  object
-    inherit t
-    inherit Seekable.t
-  end
+class type t_seekable = object
+  inherit t
+  inherit Seekable.t
+end
 
 val create :
   ?flush:(unit -> unit) ->
@@ -38,19 +36,16 @@ val dummy : t
 (** Make a bufferized output from a non bufferized output+close.
  @param bytes the buffer to use. It's owned by this channel as long
  as the channel exists. *)
-class virtual t_from_output :
-  ?bytes:bytes
-  -> unit
-  -> object
-       inherit t
+class virtual t_from_output : ?bytes:bytes -> unit -> object
+  inherit t
 
-       method virtual private output_underlying : bytes -> int -> int -> unit
-       (** Emit these private bytes, unbufferized *)
+  method virtual private output_underlying : bytes -> int -> int -> unit
+  (** Emit these private bytes, unbufferized *)
 
-       method virtual private close_underlying : unit -> unit
-       (** Close the underlying output. The bufferized output will
+  method virtual private close_underlying : unit -> unit
+  (** Close the underlying output. The bufferized output will
         flush and then call this. *)
-     end
+end
 
 class bufferized : ?bytes:bytes -> #Out.t -> t
 
@@ -68,11 +63,11 @@ val of_buffer : Buffer.t -> t
     [flush] and [close] have no effect. *)
 
 class open_file :
-  ?close_noerr:bool
-  -> ?mode:int
-  -> ?flags:open_flag list
-  -> string
-  -> t_seekable
+  ?close_noerr:bool ->
+  ?mode:int ->
+  ?flags:open_flag list ->
+  string ->
+  t_seekable
 
 val open_file :
   ?close_noerr:bool ->

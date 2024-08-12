@@ -4,22 +4,20 @@
 
     This can be a [string], an [int_channel], an [Unix.file_descr], a
     decompression wrapper around another input stream, etc. *)
-class type t =
-  object
-    method input : bytes -> int -> int -> int
-    (** Read into the slice. Returns [0] only if the
+class type t = object
+  method input : bytes -> int -> int -> int
+  (** Read into the slice. Returns [0] only if the
         stream is closed. *)
 
-    method close : unit -> unit
-    (** Close the input. Must be idempotent. *)
-  end
+  method close : unit -> unit
+  (** Close the input. Must be idempotent. *)
+end
 
 (** An input stream that is also seekable. *)
-class type t_seekable =
-  object
-    inherit t
-    inherit Seekable.t
-  end
+class type t_seekable = object
+  inherit t
+  inherit Seekable.t
+end
 
 val create :
   ?close:(unit -> unit) -> input:(bytes -> int -> int -> int) -> unit -> t
@@ -35,11 +33,11 @@ val of_in_channel : ?close_noerr:bool -> in_channel -> t_seekable
 (** Wrap a standard input channel. *)
 
 class open_file :
-  ?close_noerr:bool
-  -> ?mode:int
-  -> ?flags:open_flag list
-  -> string
-  -> t_seekable
+  ?close_noerr:bool ->
+  ?mode:int ->
+  ?flags:open_flag list ->
+  string ->
+  t_seekable
 
 val open_file :
   ?close_noerr:bool ->

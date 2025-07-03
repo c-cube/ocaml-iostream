@@ -16,15 +16,17 @@ class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
     (** Consume [n] bytes from the inner buffer. *)
 
     method input b i len : int =
-      let buf = self#fill_buf () in
-
-      if buf.len > 0 then (
-        let n = min len buf.len in
-        Bytes.blit buf.bytes buf.off b i n;
-        Slice.consume buf n;
-        n
-      ) else
-        0
+      if len = 0 then 0
+      else (
+        let slice = self#fill_buf () in
+        if slice.len > 0 then (
+          let n = min len slice.len in
+          Bytes.blit slice.bytes slice.off b i n;
+          Slice.consume slice n;
+          n
+        ) else
+          0
+      )
     (** Default implementation of [input] using [fill_buf] *)
   end
 

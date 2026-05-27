@@ -87,7 +87,7 @@ class of_string ?off ?len s : t_seekable =
 let[@inline] of_string ?off ?len s = new of_string ?off ?len s
 
 (** Read into the given slice.
-      @return the number of bytes read, [0] means end of input. *)
+    @return the number of bytes read, [0] means end of input. *)
 let[@inline] input (self : #t) buf i len = self#input buf i len
 
 (** Close the channel. *)

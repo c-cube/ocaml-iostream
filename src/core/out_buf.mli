@@ -1,7 +1,7 @@
 (** Buffered output stream. *)
 
-(** An output stream, ie. a place into which we can write bytes,
-    with a buffer to amortize the cost of operations.
+(** An output stream, ie. a place into which we can write bytes, with a buffer
+    to amortize the cost of operations.
 
     This can be a [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
 class type t = object
@@ -34,8 +34,9 @@ val dummy : t
 (** Dummy output, drops everything written to it. *)
 
 (** Make a bufferized output from a non bufferized output+close.
- @param bytes the buffer to use. It's owned by this channel as long
- as the channel exists. *)
+    @param bytes
+      the buffer to use. It's owned by this channel as long as the channel
+      exists. *)
 class virtual t_from_output : ?bytes:bytes -> unit -> object
   inherit t
 
@@ -43,8 +44,8 @@ class virtual t_from_output : ?bytes:bytes -> unit -> object
   (** Emit these private bytes, unbufferized *)
 
   method virtual private close_underlying : unit -> unit
-  (** Close the underlying output. The bufferized output will
-        flush and then call this. *)
+  (** Close the underlying output. The bufferized output will flush and then
+      call this. *)
 end
 
 class bufferized : ?bytes:bytes -> #Out.t -> t
@@ -98,7 +99,7 @@ val close : #t -> unit
 
 val flush : #t -> unit
 (** Ensure the bytes written so far are indeed written to the underlying
-      storage/network socket/… and are not just sitting in a buffer. *)
+    storage/network socket/… and are not just sitting in a buffer. *)
 
 val output_string : #t -> string -> unit
 (** Output the whole string. *)
@@ -114,8 +115,8 @@ val output_int : #t -> int -> unit
 (** Output an integer in decimal notation. *)
 
 val tee : t list -> t
-(** [tee ocs] is an output that accepts bytes and writes them to every output
-    in [ocs]. When closed, it closes all elements of [oc]. *)
+(** [tee ocs] is an output that accepts bytes and writes them to every output in
+    [ocs]. When closed, it closes all elements of [oc]. *)
 
 val map_char : (char -> char) -> #t -> t
 (** Transform the stream byte by byte *)

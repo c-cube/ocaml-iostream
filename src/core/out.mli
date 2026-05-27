@@ -1,7 +1,7 @@
 (** Output stream. *)
 
-(** An output stream, ie. a place into which we can write bytes.
-    This can be a [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
+(** An output stream, ie. a place into which we can write bytes. This can be a
+    [Buffer.t], an [out_channel], a [Unix.file_descr], etc. *)
 class type t = object
   method output : bytes -> int -> int -> unit
   (** Output slice *)
@@ -62,8 +62,8 @@ val output_int : #t -> int -> unit
 (** Output an integer in decimal notation. *)
 
 val tee : t list -> t
-(** [tee ocs] is an output that accepts bytes and writes them to every output
-    in [ocs]. When closed, it closes all elements of [oc]. *)
+(** [tee ocs] is an output that accepts bytes and writes them to every output in
+    [ocs]. When closed, it closes all elements of [oc]. *)
 
 class map_char : (char -> char) -> #t -> t
 

@@ -10,8 +10,9 @@ class dummy : t =
 let dummy : t = new dummy
 
 (** [of_out_channel oc] wraps the channel into a {!Out_channel.t}.
-      @param close_noerr if true, then closing the result uses [close_out_noerr]
-      instead of [close_out] to close [oc] *)
+    @param close_noerr
+      if true, then closing the result uses [close_out_noerr] instead of
+      [close_out] to close [oc] *)
 class of_out_channel ?(close_noerr = false) (oc : out_channel) : t_seekable =
   object
     method output bs i len = output oc bs i len

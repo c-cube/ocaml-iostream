@@ -68,8 +68,9 @@ class bufferized ?bytes (oc : #Out.t) =
 let[@inline] bufferized ?bytes oc = new bufferized ?bytes oc
 
 (** [of_out_channel oc] wraps the channel into a {!Out_channel.t}.
-      @param close_noerr if true, then closing the result uses [close_out_noerr]
-      instead of [close_out] to close [oc] *)
+    @param close_noerr
+      if true, then closing the result uses [close_out_noerr] instead of
+      [close_out] to close [oc] *)
 class of_out_channel ?close_noerr (oc : out_channel) : t_seekable =
   object
     inherit Out.of_out_channel ?close_noerr oc

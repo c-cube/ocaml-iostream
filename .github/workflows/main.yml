@@ -37,7 +37,7 @@ jobs:
         os:
           - ubuntu-latest
         ocaml-compiler:
-          - '4.08'
+          - '4.11'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6

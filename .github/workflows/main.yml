@@ -1,4 +1,4 @@
-name: Build and Test
+name: build
 
 on:
   push:
@@ -8,24 +8,41 @@ on:
 
 jobs:
   run:
-    name: build
+    name: build  # build+test on various versions of OCaml, on linux
+    timeout-minutes: 15
+    strategy:
+      fail-fast: true
+      matrix:
+        container:
+          - ghcr.io/c-cube/c-cube-commmon/ci-4.14:latest
+          - ghcr.io/c-cube/c-cube-commmon/ci-5.1:latest
+          - ghcr.io/c-cube/c-cube-commmon/ci-5.4:latest
+
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: apt-get update && apt-get install -y --no-install-recommends zlib1g-dev
+      - run: opam install -t iostream iostream-camlzip --deps-only
+      - run: opam exec -- dune build @install
+      - run: opam exec -- dune runtest
+
+  compat:
+    name: build-compat  # compat with older OCaml versions not covered by containers
+    needs: run
+    timeout-minutes: 15
     strategy:
       fail-fast: true
       matrix:
         os:
-            - ubuntu-latest
-              #- macos-latest
-              #- windows-latest
+          - ubuntu-latest
         ocaml-compiler:
-            - '4.08'
-            - '4.14'
-            - '5.1'
-
+          - '4.08'
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v6
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           dune-cache: true
@@ -34,5 +51,3 @@ jobs:
       - run: opam install -t iostream iostream-camlzip --deps-only
       - run: opam exec -- dune build @install
       - run: opam exec -- dune runtest
-      - run: opam exec -- dune build @install @runtest
-

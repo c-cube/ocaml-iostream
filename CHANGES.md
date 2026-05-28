@@ -2,7 +2,7 @@
 # 0.3
 
 - refactor: extract type definitions to `iostream.types`
-- perf slice: improve `Slice.find_index_from`
+- perf slice: improve `Slice.find_index_exn`
 
 # 0.2.2
 

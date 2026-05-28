@@ -114,7 +114,9 @@ val copy_into : #t -> #Out.t -> unit
 (** Copy the entire stream into the given output. *)
 
 val skip : #t -> int -> unit
-(** [skip ic n] reads and dicards the next [n] bytes in [ic]. *)
+(** [skip ic n] reads and discards the next [n] bytes in [ic].
+    @raise End_of_file if the stream is exhausted before [n] bytes are skipped.
+*)
 
 val input_line : ?buffer:Buffer.t -> #t -> string option
 (** Read a line from the input. Return [None] if the stream is empty.

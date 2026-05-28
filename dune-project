@@ -22,7 +22,7 @@
  (synopsis "Generic, composable IO input and output streams")
  (depends
   (ocaml
-   (>= 4.08))
+   (>= 4.14))
   (dune
    (>= 2.0))
   (ounit2 :with-test))
@@ -35,7 +35,7 @@
  (synopsis "Stream (de)compression using deflate")
  (depends
   (ocaml
-   (>= 4.08))
+   (>= 4.14))
   (dune
    (>= 2.0))
   (iostream

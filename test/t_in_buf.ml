@@ -55,5 +55,15 @@ let t3 =
     lines;
   ()
 
-let suite = "in_buf" >::: [ t1; t2; t3 ]
+let t_skip_eof =
+  "skip past EOF raises" >:: fun _ctx ->
+  let ic = In_buf.of_string "ab" in
+  assert_raises End_of_file (fun () -> In_buf.skip ic 5)
+
+let t_of_bytes_invalid =
+  "of_bytes invalid off" >:: fun _ctx ->
+  assert_raises (Invalid_argument "In_buf.of_bytes: invalid offset") (fun () ->
+      ignore (In_buf.of_bytes ~off:100 (Bytes.of_string "abc")))
+
+let suite = "in_buf" >::: [ t1; t2; t3; t_skip_eof; t_of_bytes_invalid ]
 let () = OUnit2.run_test_tt_main suite

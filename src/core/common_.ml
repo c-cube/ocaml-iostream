@@ -1,1 +1,1 @@
-let _default_buf_size = 4_096
+let _default_buf_size = 16 * 1024

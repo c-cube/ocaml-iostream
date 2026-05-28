@@ -36,5 +36,18 @@ let t2 =
   let content = In_buf.with_open_file path In_buf.input_all in
   assert_equal "hello world!" content
 
-let suite = "out" >::: [ t1; t2 ]
+(* regression: map_char must not mutate the caller's buffer. With
+   [output_string], the underlying bytes come from [Bytes.unsafe_of_string],
+   so mutating them would corrupt the caller's string. *)
+let t_map_char_no_mutation =
+  "map_char does not mutate input" >:: fun _ctx ->
+  let s = Bytes.of_string "hello" in
+  let buf = Buffer.create 32 in
+  let oc = O.of_buffer buf |> O.map_char rot13 in
+  O.output oc s 0 (Bytes.length s);
+  O.output oc s 0 (Bytes.length s);
+  assert_equal ~printer:(spf "%S") "uryyburyyb" (Buffer.contents buf);
+  assert_equal ~printer:(spf "%S") "hello" (Bytes.to_string s)
+
+let suite = "out" >::: [ t1; t2; t_map_char_no_mutation ]
 let () = OUnit2.run_test_tt_main suite

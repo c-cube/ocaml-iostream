@@ -2,6 +2,7 @@ open Slice
 open Common_
 
 class type t = Iostream_types.In_buf.t
+(** @inline *)
 
 class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
   let slice = Slice.of_bytes bytes in
@@ -66,11 +67,15 @@ class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
 let[@inline] bufferized ?bytes ic = new bufferized ?bytes ic
 
 class of_bytes ?(off = 0) ?len bytes : t =
+  let () =
+    if off < 0 || off > Bytes.length bytes then
+      invalid_arg "In_buf.of_bytes: invalid offset"
+  in
   let len =
     match len with
     | None -> Bytes.length bytes - off
     | Some n ->
-      if n > Bytes.length bytes - off then
+      if n < 0 || n > Bytes.length bytes - off then
         invalid_arg "In_buf.of_bytes: invalid length";
       n
   in
@@ -103,13 +108,17 @@ class of_string ?off ?len s =
 let[@inline] of_string ?off ?len bs = new of_string ?off ?len bs
 
 class of_in ?bytes ic =
+  let eof = ref false in
   object
     inherit t_from_refill ?bytes ()
     method close () = In.close ic
 
     method private refill buf =
-      buf.off <- 0;
-      buf.len <- In.input ic buf.bytes 0 (Bytes.length buf.bytes)
+      if not !eof then (
+        buf.off <- 0;
+        buf.len <- In.input ic buf.bytes 0 (Bytes.length buf.bytes);
+        if buf.len = 0 then eof := true
+      )
   end
 
 let[@inline] of_in ?bytes ic = new of_in ?bytes ic
@@ -177,18 +186,21 @@ let input_line ?buffer (self : #t) : string option =
       let continue = ref true in
       while !continue do
         let bs = fill_buf self in
-        if bs.len = 0 then continue := false (* EOF *);
-        match Slice.find_index_exn bs '\n' with
-        | j ->
-          Buffer.add_subbytes buf bs.bytes bs.off (j - bs.off);
-          (* without '\n' *)
-          consume self (j - bs.off + 1);
-          (* consume, including '\n' *)
-          continue := false
-        | exception Not_found ->
-          (* the whole [self.buf] is part of the current line. *)
-          Buffer.add_subbytes buf bs.bytes bs.off bs.len;
-          consume self bs.len
+        if bs.len = 0 then
+          continue := false (* EOF *)
+        else (
+          match Slice.find_index_exn bs '\n' with
+          | j ->
+            Buffer.add_subbytes buf bs.bytes bs.off (j - bs.off);
+            (* without '\n' *)
+            consume self (j - bs.off + 1);
+            (* consume, including '\n' *)
+            continue := false
+          | exception Not_found ->
+            (* the whole [self.buf] is part of the current line. *)
+            Buffer.add_subbytes buf bs.bytes bs.off bs.len;
+            consume self bs.len
+        )
       done;
       Some (Buffer.contents buf)
   )
@@ -261,6 +273,7 @@ let skip (self : #t) (n : int) : unit =
   let n = ref n in
   while !n > 0 do
     let slice = fill_buf self in
+    if slice.len = 0 then raise End_of_file;
     let len = min !n slice.len in
     Slice.consume slice len;
     n := !n - len

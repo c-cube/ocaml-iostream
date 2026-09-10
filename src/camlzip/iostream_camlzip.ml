@@ -38,7 +38,7 @@ class transduce_in_ ~mode (ic : #In_buf.t) : In.t =
     method input buf i len =
       let n_written = ref 0 in
 
-      while !n_written = 0 && !state != Done do
+      while !n_written = 0 && !state <> Done do
         match !state with
         | Done -> assert false
         | In_progress ->
@@ -91,6 +91,7 @@ let decompress_in_buf ?buf_size ?buf (ic : #In_buf.t) : In_buf.t =
     inherit! In_buf.t_from_refill ~bytes ()
 
     method private refill (slice : Slice.t) =
+      slice.off <- 0;
       slice.len <- underlying#input slice.bytes 0 (Bytes.length slice.bytes)
   end
 
@@ -105,6 +106,7 @@ let compress_in_buf ?buf_size ?buf ?(level = _default_comp_level)
     inherit! In_buf.t_from_refill ~bytes ()
 
     method private refill (slice : Slice.t) =
+      slice.off <- 0;
       slice.len <- underlying#input slice.bytes 0 (Bytes.length slice.bytes)
   end
 

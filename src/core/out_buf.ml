@@ -1,3 +1,5 @@
+open Common_
+
 class type t = Iostream_types.Out_buf.t
 class type t_seekable = Iostream_types.Out_buf.t_seekable
 
@@ -17,7 +19,6 @@ class dummy : t =
   end
 
 let dummy = new dummy
-let _default_buf_size = 16 * 1024
 
 class virtual t_from_output ?bytes:(buf = Bytes.create _default_buf_size) () =
   let off = ref 0 in

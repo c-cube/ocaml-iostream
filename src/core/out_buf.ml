@@ -134,16 +134,17 @@ let tee (l : t list) : t =
     end
 
 class map_char f (oc : #t) : t =
+  let scratch = ref Bytes.empty in
   object
     method output_char c = output_char oc (f c)
 
     method output buf i len =
-      for j = i to i + len - 1 do
-        let c = Bytes.get buf j in
-        (* safety: [j] is valid because [get] above did not raise *)
-        Bytes.unsafe_set buf j (f c)
+      if Bytes.length !scratch < len then scratch := Bytes.create len;
+      let s = !scratch in
+      for j = 0 to len - 1 do
+        Bytes.unsafe_set s j (f (Bytes.get buf (i + j)))
       done;
-      output oc buf i len
+      output oc s 0 len
 
     method flush () = flush oc
     method close () = close oc

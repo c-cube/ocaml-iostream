@@ -2,6 +2,7 @@ open Slice
 open Common_
 
 class type t = Iostream_types.In_buf.t
+(** @inline *)
 
 class virtual t_from_refill ?(bytes = Bytes.create _default_buf_size) () =
   let slice = Slice.of_bytes bytes in
@@ -66,11 +67,15 @@ class bufferized ?(bytes = Bytes.create _default_buf_size) (ic : #In.t) : t =
 let[@inline] bufferized ?bytes ic = new bufferized ?bytes ic
 
 class of_bytes ?(off = 0) ?len bytes : t =
+  let () =
+    if off < 0 || off > Bytes.length bytes then
+      invalid_arg "In_buf.of_bytes: invalid offset"
+  in
   let len =
     match len with
     | None -> Bytes.length bytes - off
     | Some n ->
-      if n > Bytes.length bytes - off then
+      if n < 0 || n > Bytes.length bytes - off then
         invalid_arg "In_buf.of_bytes: invalid length";
       n
   in

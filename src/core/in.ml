@@ -50,13 +50,17 @@ let with_open_file ?close_noerr ?mode ?flags filename f =
   Fun.protect ~finally:ic#close (fun () -> f ic)
 
 class of_bytes ?(off = 0) ?len (b : bytes) : t_seekable =
+  let () =
+    if off < 0 || off > Bytes.length b then invalid_arg "Iostream.In.of_bytes"
+  in
   (* i: current position in [b] *)
   let i = ref off in
 
   let len =
     match len with
     | Some n ->
-      if n > Bytes.length b - off then invalid_arg "Iostream.In.of_bytes";
+      if n < 0 || n > Bytes.length b - off then
+        invalid_arg "Iostream.In.of_bytes";
       n
     | None -> Bytes.length b - off
   in

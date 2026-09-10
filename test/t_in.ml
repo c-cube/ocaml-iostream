@@ -106,6 +106,11 @@ let t_seek =
 
   ()
 
+let t_of_bytes_invalid =
+  "of_bytes invalid off" >:: fun _ctx ->
+  assert_raises (Invalid_argument "Iostream.In.of_bytes") (fun () ->
+      ignore (In.of_bytes ~off:100 (Bytes.of_string "abc")))
+
 let suite =
   "in"
   >::: [
@@ -118,6 +123,7 @@ let suite =
          t_read_all;
          t_map;
          t_seek;
+         t_of_bytes_invalid;
        ]
 
 let () = OUnit2.run_test_tt_main suite

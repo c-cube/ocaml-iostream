@@ -25,7 +25,7 @@ let[@inline] len self = self.len
 (** Consume the first [n] bytes from the slice, making it [n] bytes shorter.
     This modifies the slice in place. *)
 let[@inline] consume (self : t) n : unit =
-  if n < 0 || n > self.len then invalid_arg "In_buf.consume_buf";
+  if n < 0 || n > self.len then invalid_arg "Slice.consume";
   self.off <- self.off + n;
   self.len <- self.len - n
 
